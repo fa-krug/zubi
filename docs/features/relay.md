@@ -158,7 +158,7 @@ Let's Encrypt's default profile.
   account in a subdirectory.
 - **Failure**: the CA must reach port 443 of the address. When it can't, the error says so and the
   relay exits; Let's Encrypt allows five failed validations per address an hour, so a service manager
-  should wait between restarts.
+  should wait between restarts: the unit `--install-service` writes waits 15 minutes in that mode.
 - `x/crypto/acme`'s `autocert` doesn't fit: it rejects connections that carry no server name and only
   orders certificates for DNS names. `CertManager` drives `acme.Client` itself, with
   `CreateCertFromOrder` (not `CreateOrderCert`, which fails against a CA that finalizes
