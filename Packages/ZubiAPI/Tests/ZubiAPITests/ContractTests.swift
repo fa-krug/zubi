@@ -114,7 +114,7 @@ final class ContractTests: XCTestCase {
         let documented = Set(operations.map(\.name))
         XCTAssertEqual(routed.subtracting(documented), [], "Routes the spec does not document")
         XCTAssertEqual(documented.subtracting(routed), [], "Documented operations with no route")
-        XCTAssertEqual(documented.count, 19)
+        XCTAssertEqual(documented.count, 16)
     }
 
     // MARK: Success shapes
@@ -303,43 +303,6 @@ final class ContractTests: XCTestCase {
         }
     }
 
-    /// `queryKey` is for calendar apps, which can't send a header; no other route may take it, and
-    /// it takes only a read-only key, since a URL ends up in logs and sync settings.
-    func testOnlyTheFeedTakesTheKeyInTheQuery() async throws {
-        let schemes = try XCTUnwrap((spec["components"] as? [String: Any])?["securitySchemes"] as? [String: [String: Any]])
-        let name = try XCTUnwrap(schemes["queryKey"]?["name"] as? String)
-        let global = spec["security"] as? [[String: Any]] ?? []
-        let accepted = Locked<[String]>([])
-        try await withClient(Fixture.server()) { client in
-            for operation in self.operations where operation.secured {
-                let security = operation.body["security"] as? [[String: Any]] ?? global
-                let takesQueryKey = security.contains { $0["queryKey"] != nil }
-                // A read-write key in a URL is refused like a wrong one, even where a read key works.
-                for (key, works) in [(Fixture.readKey, takesQueryKey), (Fixture.apiKey, false), ("wrong", false)] {
-                    var query = operation.requiredQuery
-                    query[name] = key
-                    let response = try await client.execute(
-                        uri: Self.uri(operation.examplePath, query), method: operation.httpMethod, headers: [:],
-                        body: try operation.requestBody.map { try Self.buffer($0.example) })
-                    if works {
-                        XCTAssertEqual(Int(response.status.code), operation.success?.status, operation.name)
-                        accepted.mutate { $0.append(operation.name) }
-                    } else {
-                        XCTAssertEqual(response.status, .unauthorized, "\(operation.name) ?\(name)=\(key)")
-                        XCTAssertEqual(response.body.readableBytes, 0, "\(operation.name): 401 has a body")
-                    }
-                }
-            }
-            // In the header, the feed takes either kind, as every route does.
-            for key in [Fixture.apiKey, Fixture.readKey] {
-                let response = try await client.execute(
-                    uri: "/api/calendars/Work/events.ics", method: .get, headers: [.authorization: "Bearer \(key)"])
-                XCTAssertEqual(response.status, .ok, key)
-            }
-        }
-        XCTAssertEqual(accepted.value, ["GET /api/calendars/{id}/events.ics"])
-    }
-
     func testWritesAreRecordedWithTheirKey() async throws {
         let records = Locked<[WriteRecord]>([])
         let used = Locked<[String]>([])
@@ -370,32 +333,6 @@ final class ContractTests: XCTestCase {
         ])
         XCTAssertEqual(records.value.map(\.date), Array(repeating: Fixture.now, count: 5))
         XCTAssertEqual(Set(used.value), ["key-laptop", "key-pi"])
-    }
-
-    func testCalendarFeedIsICalendar() async throws {
-        try await withClient(Fixture.server()) { client in
-            let response = try await client.execute(
-                uri: "/api/calendars/cal-work/events.ics", method: .get,
-                headers: [.authorization: "Bearer \(Fixture.apiKey)"])
-            XCTAssertEqual(response.status, .ok)
-            XCTAssertEqual(response.headers[.contentType], "text/calendar; charset=utf-8")
-            let body = String(buffer: response.body)
-            XCTAssertTrue(body.hasPrefix("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:"))
-            XCTAssertTrue(body.hasSuffix("END:VCALENDAR\r\n"))
-            XCTAssertFalse(body.replacingOccurrences(of: "\r\n", with: "").contains("\n"), "bare LF")
-            let lines = body.components(separatedBy: "\r\n")
-            XCTAssertTrue(lines.contains("X-WR-CALNAME:Work"))
-            // Work only, and a recurring event once per occurrence, each with its own UID.
-            XCTAssertEqual(lines.filter { $0 == "BEGIN:VEVENT" }.count, 3)
-            let uids = lines.filter { $0.hasPrefix("UID:") }
-            XCTAssertEqual(Set(uids).count, 3)
-            XCTAssertTrue(lines.contains("DTSTART:20261103T100000Z"))
-            XCTAssertTrue(lines.contains("URL:https://example.com/meet"))
-            // When the feed was made, which the tests pin.
-            let stamps = Set(lines.filter { $0.hasPrefix("DTSTAMP:") })
-            XCTAssertEqual(stamps.count, 1)
-            XCTAssertEqual(stamps.first?.hasSuffix("0000Z"), true)
-        }
     }
 
     /// A client sees a write as it happens, and leaves nothing behind when it goes.
@@ -461,7 +398,6 @@ final class ContractTests: XCTestCase {
         try await provokeAccessDenied()
         try await provokeNotesFailures()
         try await provokeWriteErrors()
-        try await provokeFeedErrors()
         try await provokeReadOnlyKey()
 
         // 401 is every secured operation's, and testSecuredOperationsNeedTheKey covers it.
@@ -496,8 +432,6 @@ final class ContractTests: XCTestCase {
             for path in ["/api/lists", "/api/reminders", "/api/calendars", "/api/events"] {
                 try await self.expectError(.forbidden, "GET", path, client)
             }
-            try await self.expectError(.forbidden, "GET", "/api/calendars/{id}/events.ics", path: ["id": "Work"],
-                                       client)
         }
     }
 
@@ -629,26 +563,6 @@ final class ContractTests: XCTestCase {
     }
 
 
-    private func provokeFeedErrors() async throws {
-        try await withClient(Fixture.server()) { client in
-            let feed = { (status: HTTPResponse.Status, id: String, query: [String: String]) in
-                try await self.expectError(status, "GET", "/api/calendars/{id}/events.ics", path: ["id": id],
-                                           query: query, client)
-            }
-            try await feed(.notFound, "Hidden", [:])
-            try await feed(.notFound, "cal-hidden", [:])
-            try await feed(.notFound, "Nowhere", [:])
-            try await feed(.badRequest, "Work", ["from": "2026-13-01"])
-            try await feed(.badRequest, "Work", ["from": "2026-11-06", "to": "2026-11-02"])
-            try await feed(.badRequest, "Work", ["from": "2026-01-01", "to": "2028-06-01"])
-            // Two years is fine.
-            let response = try await client.execute(
-                uri: Self.uri("/api/calendars/Work/events.ics", ["from": "2026-01-01", "to": "2027-12-31"]),
-                method: .get, headers: [.authorization: "Bearer \(Fixture.apiKey)"])
-            XCTAssertEqual(response.status, .ok)
-        }
-    }
-
     /// A read-only key may read everything a read-write key may, and change nothing, even where the
     /// item itself is writable.
     private func provokeReadOnlyKey() async throws {
@@ -683,31 +597,6 @@ final class ContractTests: XCTestCase {
         XCTAssertEqual(NoteHTML.body(title: "T", .text("a & \"b\"\r\n'c'\n")),
                        "<div><h1>T</h1></div><div>a &amp; &quot;b&quot;</div><div>&#39;c&#39;</div><div><br></div>")
         XCTAssertEqual(NoteHTML.body(title: "T", .html("<div><b>x</b></div>")), "<div><h1>T</h1></div><div><b>x</b></div>")
-    }
-
-    // MARK: Docs
-
-    func testOpenAPIServesTheBundledSpec() async throws {
-        let expected = try Data(contentsOf: Self.specURL)
-        try await withClient(Fixture.server()) { client in
-            let response = try await client.execute(uri: "/openapi.json", method: .get)
-            XCTAssertEqual(response.status, .ok)
-            XCTAssertEqual(response.headers[.contentType], "application/json")
-            XCTAssertEqual(Data(response.body.readableBytesView), expected)
-        }
-    }
-
-    func testDocsPagePointsAtTheSpec() async throws {
-        try await withClient(Fixture.server()) { client in
-            let response = try await client.execute(uri: "/docs", method: .get)
-            XCTAssertEqual(response.status, .ok)
-            XCTAssertTrue(response.headers[.contentType]?.hasPrefix("text/html") == true)
-            let html = String(buffer: response.body)
-            XCTAssertTrue(html.contains("url: \"/openapi.json\""))
-            XCTAssertTrue(html.contains("https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.17.14/swagger-ui.css"))
-            XCTAssertTrue(html.contains("https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.17.14/swagger-ui-bundle.js"))
-            XCTAssertTrue(html.contains("persistAuthorization: true"))
-        }
     }
 
     // MARK: Helpers

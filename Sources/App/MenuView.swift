@@ -10,11 +10,26 @@ struct MenuView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 6) {
                 Circle()
-                    .fill(controller.isRunning ? Color.green : Color.secondary)
+                    .fill(statusColor)
                     .frame(width: 8, height: 8)
-                Text(controller.isRunning
-                     ? "Running on \(controller.host):\(String(controller.port))"
-                     : "Stopped")
+                Text(statusText)
+            }
+            if case .failed(let message) = controller.relayStatus {
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(Color.red)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if let error = controller.lastError, !controller.isRunning {
+                Text(error)
+                    .font(.caption)
+                    .foregroundStyle(Color.red)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if !controller.hasAnySource {
+                Text("No data source connected yet. Open Settings.")
+                    .font(.caption)
+                    .foregroundStyle(Color.orange)
             }
             if controller.isKeepingAwake {
                 Label("Keeping this Mac awake", systemImage: "cup.and.saucer")
@@ -22,43 +37,22 @@ struct MenuView: View {
                     .foregroundStyle(.secondary)
             }
 
-            if !controller.hasAnySource {
-                Text("No data source connected yet. Open Settings.")
-                    .font(.caption)
-                    .foregroundStyle(Color.orange)
-            }
-
-            if let error = controller.lastError {
-                Text(error)
-                    .font(.caption)
-                    .foregroundStyle(Color.red)
-            }
-
-            if !controller.log.isEmpty {
-                Divider()
-                VStack(alignment: .leading, spacing: 2) {
-                    ForEach(Array(controller.log.suffix(8).enumerated()), id: \.offset) { _, line in
-                        Text(line)
-                            .font(.caption.monospaced())
-                            .lineLimit(1)
-                    }
-                }
+            if let code = controller.defaultPairingCode {
+                Button("Copy Pairing Code") { controller.copyToPasteboard(code) }
+                    .help("Paste it into “zubi” on a device to pair it with this Mac")
             }
 
             Divider()
 
             HStack {
-                Button(controller.isRunning ? "Stop" : "Start") {
-                    if controller.isRunning { controller.stop() } else { controller.start() }
+                if !controller.isRunning {
+                    Button("Start") { controller.start() }
                 }
-
                 Button("Settings…") {
                     openWindow(id: "settings")
                     NSApp.activate(ignoringOtherApps: true)
                 }
-
                 Spacer()
-
                 Button("Quit") { NSApp.terminate(nil) }
             }
 
@@ -68,5 +62,23 @@ struct MenuView: View {
         }
         .padding(12)
         .frame(width: 320)
+    }
+
+    private var statusText: String {
+        if !controller.isRunning { return "Stopped" }
+        switch controller.relayStatus {
+        case .connected: return "Connected: clients can reach this Mac"
+        case .failed: return "Not connected"
+        case .connecting, nil: return "Connecting…"
+        }
+    }
+
+    private var statusColor: Color {
+        if !controller.isRunning { return .secondary }
+        switch controller.relayStatus {
+        case .connected: return .green
+        case .failed: return .red
+        case .connecting, nil: return .orange
+        }
     }
 }

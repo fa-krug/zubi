@@ -3,7 +3,7 @@
   "info": {
     "title": "Zubi API",
     "version": "1",
-    "description": "Reads, creates and edits reminders, events and notes in the lists, calendars and Notes folders a Mac running Zubi shares. Each one is set in Zubi's Settings to Off, Read, or Read & Write: anything Off answers 404, and writing to something shared read-only answers 403. Nothing is ever deleted through the API. Every `/api` route needs `Authorization: Bearer <api-key>`. Each device gets its own key under Settings › Keys, either **Read** or **Read & Write**: a read-only key can never change anything, whatever the item's setting, and a change needs both the key and the list, calendar or folder to allow writing. `/api/key` tells a client which key it holds.\n\nDates are ISO 8601 in UTC, or `YYYY-MM-DD` in the Mac's time zone for all-day items.",
+    "description": "The protocol between a Mac running Zubi and its clients, inside the end-to-end encrypted session each client opens through a relay; nothing reaches it any other way. It reads, creates and edits reminders, events and notes in the lists, calendars and Notes folders the Mac shares. Each one is set in Zubi's Settings to Off, Read, or Read & Write: anything Off answers 404, and writing to something shared read-only answers 403. Nothing is ever deleted. Every `/api` route needs `Authorization: Bearer <key>`, the key the client was paired with; `/api/key` tells a client which one it holds.\n\nDates are ISO 8601 in UTC, or `YYYY-MM-DD` in the Mac's time zone for all-day items.",
     "license": {
       "name": "MIT",
       "identifier": "MIT"
@@ -51,50 +51,6 @@
                 "schema": {
                   "type": "string",
                   "const": "ok"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/openapi.json": {
-      "get": {
-        "operationId": "openapi",
-        "tags": [
-          "Service"
-        ],
-        "summary": "This document",
-        "security": [],
-        "responses": {
-          "200": {
-            "description": "The OpenAPI document.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/docs": {
-      "get": {
-        "operationId": "docs",
-        "tags": [
-          "Service"
-        ],
-        "summary": "Swagger UI for this document",
-        "security": [],
-        "responses": {
-          "200": {
-            "description": "An HTML page.",
-            "content": {
-              "text/html": {
-                "schema": {
-                  "type": "string"
                 }
               }
             }
@@ -458,101 +414,6 @@
           },
           "403": {
             "description": "Calendar access is not granted on the Mac.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/calendars/{id}/events.ics": {
-      "get": {
-        "operationId": "calendarFeed",
-        "tags": [
-          "Calendar"
-        ],
-        "summary": "Subscribe to a calendar",
-        "description": "The calendar's events as iCalendar, for calendar apps that subscribe to a URL. It takes the key as a header or, for apps that can't send one, as `?key=`; a key in the URL must be a Read key.",
-        "security": [
-          {
-            "bearer": []
-          },
-          {
-            "queryKey": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "description": "The calendar, by ID or title.",
-            "schema": {
-              "type": "string"
-            },
-            "example": "Work"
-          },
-          {
-            "name": "from",
-            "in": "query",
-            "description": "First day, `YYYY-MM-DD`. Defaults to 30 days before today.",
-            "schema": {
-              "type": "string",
-              "format": "date"
-            },
-            "example": "2026-10-01"
-          },
-          {
-            "name": "to",
-            "in": "query",
-            "description": "Last day, inclusive. Defaults to a year after today. At most two years after `from`.",
-            "schema": {
-              "type": "string",
-              "format": "date"
-            },
-            "example": "2026-12-31"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "The events, one `VEVENT` per occurrence.",
-            "content": {
-              "text/calendar": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "A date is malformed, `to` is before `from`, or the range exceeds two years.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Missing or wrong API key, or a Read & Write key given as `?key=`. The body is empty."
-          },
-          "403": {
-            "description": "Calendar access is not granted on the Mac.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "The calendar is unknown or not shared.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1180,12 +1041,6 @@
         "type": "http",
         "scheme": "bearer",
         "description": "A key from Zubi › Settings › Keys."
-      },
-      "queryKey": {
-        "type": "apiKey",
-        "in": "query",
-        "name": "key",
-        "description": "A key as a query parameter, accepted only by the calendar feed, because calendar apps can't send headers. Only a Read key is accepted this way, since a URL ends up in logs and sync settings; a Read & Write key answers 401. Give each subscribing app its own."
       }
     },
     "schemas": {

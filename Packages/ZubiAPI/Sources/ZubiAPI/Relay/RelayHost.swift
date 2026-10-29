@@ -86,7 +86,11 @@ public final class RelayHost: @unchecked Sendable {
                 onStatus(.failed("The relay closed the connection."))
             } catch {
                 if Task.isCancelled { return }
-                onStatus(.failed(Self.describe(error)))
+                // URLSession says only "bad response from the server" when the WebSocket is refused,
+                // so ask the address what it is.
+                let message = error is URLError ? await diagnose(error) : Self.describe(error)
+                if Task.isCancelled { return }
+                onStatus(.failed(message))
             }
             try? await Task.sleep(nanoseconds: delay * 1_000_000_000)
             delay = min(delay * 2, 60)
@@ -96,6 +100,58 @@ public final class RelayHost: @unchecked Sendable {
     private static func describe(_ error: Error) -> String {
         if let relayError = error as? RelayNoiseError { return relayError.description }
         return error.localizedDescription
+    }
+
+    /// Why connecting failed, in words someone setting up a relay can act on. A relay answers its
+    /// root with a line starting "Zubi relay", so anything else at the address isn't one: typically
+    /// a tunnel or proxy pointing at the wrong port.
+    private func diagnose(_ error: Error) async -> String {
+        let host = relay.host ?? relay.absoluteString
+        guard var parts = URLComponents(url: relay, resolvingAgainstBaseURL: false) else {
+            return Self.describe(error)
+        }
+        parts.scheme = parts.scheme == "ws" ? "http" : "https"
+        parts.path = "/"
+        guard let root = parts.url else { return Self.describe(error) }
+
+        let status: Int
+        let body: String
+        do {
+            let (data, response) = try await session.data(for: URLRequest(url: root, timeoutInterval: 10))
+            status = (response as? HTTPURLResponse)?.statusCode ?? 0
+            body = String(decoding: data.prefix(300), as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+        } catch {
+            return "Can't reach \(host): \(error.localizedDescription)"
+        }
+
+        if body.hasPrefix("Zubi relay") {
+            // The relay is there; ask why it refused the WebSocket.
+            let probe = (try? await session.data(for: URLRequest(url: root.appendingPathComponent("v1/host"),
+                                                                    timeoutInterval: 10)))?.1
+            switch (probe as? HTTPURLResponse)?.statusCode {
+            case 403:
+                return "The relay at \(host) refused the connection: its proxy didn't say the connection came over "
+                    + "HTTPS. The proxy must pass the X-Forwarded-Proto header on."
+            case 429:
+                return "The relay at \(host) is limiting connections from this network for a moment. Zubi tries again."
+            case 426:
+                return Self.describe(error) // the relay would take a WebSocket: something on the way dropped it
+            default:
+                return "The relay at \(host) answers, but the WebSocket didn't get through. Make sure the proxy "
+                    + "passes WebSocket connections on."
+            }
+        }
+
+        switch status {
+        case 502, 503, 504, 520...530:
+            return "\(host) is a proxy or tunnel, but nothing answers behind it (\(status)). Check that "
+                + "“zubi relay” runs, and that the tunnel points at its address, such as http://127.0.0.1:8080."
+        default:
+            let said = body.isEmpty ? "" : ": “\(body.prefix(60))”"
+            return "\(host) answers, but it isn't a Zubi relay (\(status)\(said)). Point the tunnel or proxy at the "
+                + "relay's address, such as http://127.0.0.1:8080 rather than localhost, and check that "
+                + "“zubi relay” runs there."
+        }
     }
 
     /// One control connection: the challenge, the signed registration, then sessions as they come.

@@ -148,7 +148,7 @@ func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", func(w http.ResponseWriter, r *http.Request) {
 		io.WriteString(w, "Zubi relay. It pairs a Mac running Zubi with its clients; see "+
-			"https://fa-krug.github.io/zubi/docs.html#relay\n")
+			"https://zubi.fa-krug.de/docs.html#relay\n")
 	})
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
 		io.WriteString(w, "ok\n")

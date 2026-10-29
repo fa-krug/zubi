@@ -1,7 +1,7 @@
 # Contributing to Zubi
 
 This guide is for people who want to build Zubi, change it, or send a change back. If you only want to
-use Zubi, the [README](README.md) and the [documentation](https://fa-krug.github.io/zubi/docs.html) are
+use Zubi, the [README](README.md) and the [documentation](https://zubi.fa-krug.de/docs.html) are
 the place to start.
 
 > **Don't hurry your code. Make sure it works well and is well designed. Don't worry about timing.**
@@ -17,8 +17,8 @@ Three rules no change may break:
 
 - **Nothing leaks or changes by default.** Zubi hands personal data to other machines and lets them
   change it. A change must never share a list, calendar or folder the user left Off, write to one they
-  set to Read, delete anything, answer an `/api` route without the key, or widen the default bind
-  beyond `127.0.0.1`.
+  set to Read, delete anything, answer an `/api` route without the key, let the server answer
+  anywhere but `127.0.0.1`, or let a relay read what it carries.
 - **`openapi.json` is the contract.** The server and the CLI are both tested against it; an API change
   starts there.
 - **The rest of the non-negotiables** in [`AGENTS.md`](AGENTS.md) apply to people exactly as they do to
@@ -31,9 +31,9 @@ One repository, four things that ship, each released only when its own files cha
 | Folder | What it is | Language | Ships as |
 | --- | --- | --- | --- |
 | `Sources/` | The Mac app: menu bar, Settings window, permissions, the EventKit and Notes readers, the self-updater | Swift, SwiftUI | `Zubi-Universal-<version>.zip`, tag `v<version>` |
-| `Packages/ZubiAPI/` | Everything HTTP: server, routes, key check, response types, `openapi.json`, `/docs`, the Mac's side of the relay, and the contract tests | Swift (Hummingbird) | inside the app |
+| `Packages/ZubiAPI/` | Everything HTTP: server, routes, key check, response types, `openapi.json`, the Mac's side of the relay, and the contract tests | Swift (Hummingbird) | inside the app |
 | `cli/` | `zubi`, the command-line client and relay | Go: the standard library, plus `golang.org/x/crypto` for the relay's certificates | archives per platform, tag `cli/v<version>` |
-| `site/` | The website at <https://fa-krug.github.io/zubi/>, including the generated API reference | HTML, CSS, a Python build script | GitHub Pages |
+| `site/` | The website at <https://zubi.fa-krug.de/>, including the generated API reference | HTML, CSS, a Python build script | GitHub Pages |
 
 Also in the repository:
 
@@ -75,12 +75,9 @@ xcodebuild -project Zubi.xcodeproj -scheme Zubi -configuration Debug \
 open "build/DerivedData/Build/Products/Debug/Zubi Dev.app"
 ```
 
-A local build is **Zubi Dev**, a separate app with its own settings, permissions, API key and login
-item, so it never touches an installed Zubi. It also never updates itself. Two things to know:
-
-- If you also run the installed Zubi, give the dev build another port:
-  `defaults write de.fa-krug.zubi.dev port -int 8797`, then start it.
-- A Debug build accepts `--open-settings <tab>` to open Settings on a tab at launch, which is handy for
+A local build is **Zubi Dev**, a separate app with its own settings, permissions, clients, relay room
+and login item, so it never touches an installed Zubi. It also never updates itself, and its server
+listens on port 8797 instead of 8787, so both can run at once. A Debug build accepts `--open-settings <tab>` to open Settings on a tab at launch, which is handy for
   screenshots: `open -n "build/.../Zubi Dev.app" --args --open-settings notes`.
 
 After editing `project.yml`, run `xcodegen generate` and commit the regenerated project with it. Never
@@ -117,26 +114,52 @@ Every change to an endpoint, parameter or response goes through the spec first:
 3. Change the route in `Packages/ZubiAPI` and the fakes in its tests until `swift test` passes.
 4. Change the CLI (`cli/cmd/zubi/commands.go` and the response types) and its fixtures until
    `go test` passes.
-5. Build the app, run it, and `curl` the endpoint with the key, without it, and for something that
-   isn't shared.
+5. Build the app, run it, and try the command against it (below), with something shared and
+   something that isn't.
 6. Update the docs a user would read: the website's [docs page](site/pages/docs.html) and
-   [cli/README.md](cli/README.md). The API reference on the website is generated from the spec, so it
-   updates itself.
+   [cli/README.md](cli/README.md).
 
 ## Work on the CLI
 
 ```sh
 cd cli
 go run ./cmd/zubi help
-ZUBI_URL=http://127.0.0.1:8797 ZUBI_API_KEY=<dev key> go run ./cmd/zubi events
+ZUBI_CONFIG=/tmp/zubi.json go run ./cmd/zubi    # pair with a code from Zubi Dev › Settings › Clients
+ZUBI_CONFIG=/tmp/zubi.json go run ./cmd/zubi events
 ```
 
-The dev build's keys are under **Settings › Keys** in Zubi Dev. Use `ZUBI_CONFIG=/tmp/zubi.json` to
-keep your experiments out of your real CLI settings. Every request the CLI makes is listed in
+`ZUBI_CONFIG` keeps your experiments out of your real client settings. To skip the relay, point the
+client straight at Zubi Dev's server, with a client's key (the `secret` in its pairing code):
+`ZUBI_URL=http://127.0.0.1:8797 ZUBI_API_KEY=<key> go run ./cmd/zubi events`; only development
+uses that. Every request the CLI makes is listed in
 `cmd/zubi/commands.go`; a new command starts there, and the usage text in `main.go` must name it (a test
 checks). See [cli/README.md](cli/README.md) for its behaviour and exit codes. The relay, `zubi relay`, is
 in `internal/relay` and `internal/websocket`; its protocol and rules are in
 [docs/features/relay.md](docs/features/relay.md).
+
+Every request the client can make is one entry in `apiCommands` (`cmd/zubi/commands.go`): its method,
+path, query parameters, request body type, response type and media type. The protocol inside a session
+is HTTP, described by `Packages/ZubiAPI/Sources/ZubiAPI/Resources/openapi.json`; the tests read it and
+fail when an entry, a path or query parameter, a request body struct (field names, required vs.
+optional, which fields may be `null`) or a response struct disagrees with it, or when it gains an
+operation or a query parameter no command sends. They also validate the fixtures in
+`cmd/zubi/testdata/` against it, and run every command against a fake Zubi that checks each request's
+method, path, parameters, body and `Accept` header against it and answers with those fixtures.
+
+The MCP tools (`mcpTools` in `cmd/zubi/mcp.go`) each name an entry in `apiCommands` and send
+through the same client. The tests check that each tool's arguments are exactly its operation's
+parameters and body properties (names, types, enums, bounds, required), that every operation an
+assistant could use has a tool, and drive every tool through `zubi mcp` against the fake.
+
+The relay (`internal/relay`, `internal/websocket`) has its own tests: WebSocket framing, the relay
+protocol from registration to a closed session, limits and STUN. Sessions through it
+(`internal/noise`, `internal/tunnel`) are tested against vectors from an independent Noise
+implementation, shared with the app's tests, and end to end: pairing, `zubi serve`, commands and `zubi watch` run against the fake Zubi through a real relay and a Go stand-in for the Mac
+(`tunnel.Host`). Its certificate tests need Pebble,
+Let's Encrypt's test CA, and are skipped without it:
+`ZUBI_PEBBLE=$(go env GOPATH)/bin/pebble go test ./internal/relay/` after
+`go install github.com/letsencrypt/pebble/v2/cmd/pebble@v2.10.1`. The protocol and the relay's rules
+are in [docs/features/relay.md](docs/features/relay.md).
 
 ## Work on the website
 
@@ -146,8 +169,7 @@ python3 -m http.server 8800 --directory _site    # open http://localhost:8800
 ```
 
 Page bodies live in `site/pages/`, each starting with a JSON comment that sets its title, description
-and menu entry; the build wraps them in the shared header and footer and generates `api.html` from the
-spec. Two rules: the site loads **no external fonts, scripts or trackers** (its privacy policy promises
+and menu entry; the build wraps them in the shared header and footer. Two rules: the site loads **no external fonts, scripts or trackers** (its privacy policy promises
 that), and the legal pages keep their English and German versions in step. Every code block gets a Copy
 button from `assets/copy.js`; inside one, wrap what is output rather than something to type in
 `<span class="dim out">`, which shows it dimmed and leaves it out of the copy. `site/install.sh`, the

@@ -1,110 +1,130 @@
 import SwiftUI
 import ZubiAPI
 
+/// The Connection tab: whether clients can reach this Mac, the code to pair one, and the relay.
 struct ServerPane: View {
     @EnvironmentObject private var controller: BridgeController
+    @State private var usesOwnRelay = false
 
     var body: some View {
         Form {
-            Section("Status") {
+            Section {
                 LabeledContent {
-                    Button(controller.isRunning ? "Stop" : "Start") {
-                        if controller.isRunning { controller.stop() } else { controller.start() }
+                    if !controller.isRunning {
+                        Button("Start") { controller.start() }
                     }
                 } label: {
                     Label {
-                        Text(controller.isRunning
-                             ? "Running on \(controller.host):\(String(controller.port))"
-                             : "Stopped")
-                        if let error = controller.lastError {
-                            Text(error).foregroundStyle(.red)
-                        }
+                        Text(statusTitle)
+                        Text(statusDetail)
                     } icon: {
                         Image(systemName: "circle.fill")
-                            .foregroundStyle(controller.isRunning ? Color.green : Color.secondary)
+                            .foregroundStyle(statusColor)
                             .imageScale(.small)
                     }
                 }
-            }
-
-            Section {
-                Picker("Bind to", selection: $controller.bindMode) {
-                    ForEach(BindMode.allCases) { mode in
-                        Text(mode.label).tag(mode)
-                    }
+                if nothingShared {
+                    Label("Nothing is shared yet: choose lists, calendars and folders under Reminders, Calendars "
+                          + "and Notes.", systemImage: "exclamationmark.circle")
+                        .foregroundStyle(.orange)
                 }
-                if controller.bindMode == .custom {
-                    TextField("IP address", text: $controller.customHost)
-                }
-                if controller.bindMode == .allInterfaces {
-                    Text("Zubi also announces itself on the local network over Bonjour (\(BonjourAdvertiser.serviceType)), "
-                         + "so clients can find it by this Mac's name.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                TextField("Port", value: $controller.port, format: .number.grouping(.never))
             } header: {
-                Text("Network")
-            } footer: {
-                HStack {
-                    Text("The API is plain HTTP. Off localhost, keep it on a network you trust.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Button("Apply and Restart") { controller.applyNetworkSettings() }
-                }
+                Text("Status")
             }
 
             Section {
-                Toggle("Connect through a relay", isOn: $controller.relayEnabled)
-                if controller.relayEnabled {
-                    TextField("Relay", text: $controller.relayURL, prompt: Text("wss://relay.example.com"))
-                    LabeledContent("Status") {
-                        Text(relayStatus)
-                            .foregroundStyle(relayStatusIsError ? Color.red : Color.secondary)
-                            .multilineTextAlignment(.trailing)
-                    }
+                if let key = controller.keys.first, let code = controller.pairingCode(for: key) {
+                    PairingCodeRow(code: code)
+                    Text("On the device: install the client (zubi.fa-krug.de shows how), run “zubi” and paste this "
+                         + "code. It is the client “\(key.name)”; give each device its own under Clients.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("The code appears once Zubi is connected.")
+                        .foregroundStyle(.secondary)
+                }
+            } header: {
+                Text("Pairing code")
+            }
+
+            Section {
+                Toggle("Use my own relay", isOn: $usesOwnRelay)
+                if usesOwnRelay {
+                    TextField("Relay", text: $controller.ownRelay, prompt: Text("wss://relay.example.com"))
+                } else {
+                    LabeledContent("Relay", value: BridgeController.defaultRelay)
                 }
             } header: {
                 Text("Relay")
             } footer: {
                 HStack(alignment: .top) {
-                    Text("For devices on other networks. Zubi connects out to a relay you run with “zubi relay”, "
-                         + "so nothing here accepts connections from the internet. Each device's session is "
-                         + "encrypted end to end with its key: the relay can't read it. Pair a device with the "
-                         + "code under Settings › Keys.")
+                    Text("Clients reach this Mac through a relay, so nothing here accepts connections from the "
+                         + "internet. Each client's connection is encrypted end to end with its own code: the relay "
+                         + "can't read it. After switching relays, pair your clients again.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Spacer()
-                    Button("Apply") { controller.applyRelaySettings() }
-                }
-            }
-
-            if !controller.log.isEmpty {
-                Section("Recent requests") {
-                    ForEach(Array(controller.log.suffix(12).reversed().enumerated()), id: \.offset) { _, line in
-                        Text(line)
-                            .font(.caption.monospaced())
-                            .lineLimit(1)
-                            .truncationMode(.middle)
+                    Button("Apply") {
+                        if !usesOwnRelay { controller.ownRelay = "" }
+                        controller.applyRelaySettings()
                     }
                 }
             }
         }
         .formStyle(.grouped)
+        .onAppear { usesOwnRelay = !controller.ownRelay.isEmpty }
     }
 
-    private var relayStatus: String {
+    private var nothingShared: Bool {
+        controller.exposedReminderLists.isEmpty && controller.exposedCalendars.isEmpty
+            && controller.exposedNoteFolders.isEmpty
+    }
+
+    private var statusTitle: String {
+        if !controller.isRunning { return "Stopped" }
         switch controller.relayStatus {
-        case nil: controller.isRunning ? "Not connected: click Apply" : "Connects while the server runs"
-        case .connecting: "Connecting…"
-        case .connected: "Connected"
-        case .failed(let message): message
+        case .connected: return "Connected"
+        case .failed: return "Not connected"
+        case .connecting, nil: return "Connecting…"
         }
     }
 
-    private var relayStatusIsError: Bool {
-        if case .failed = controller.relayStatus { return true }
-        return false
+    private var statusDetail: String {
+        if !controller.isRunning {
+            return controller.lastError ?? "Zubi isn't serving. Click Start."
+        }
+        let host = URL(string: controller.relayAddress)?.host ?? controller.relayAddress
+        switch controller.relayStatus {
+        case .connected: return "Clients can reach this Mac through \(host)."
+        case .failed(let message): return message
+        case .connecting, nil: return "Connecting to \(host)."
+        }
+    }
+
+    private var statusColor: Color {
+        if !controller.isRunning { return .secondary }
+        switch controller.relayStatus {
+        case .connected: return .green
+        case .failed: return .red
+        case .connecting, nil: return .orange
+        }
+    }
+}
+
+/// A pairing code, selectable, with a button to copy it.
+struct PairingCodeRow: View {
+    @EnvironmentObject private var controller: BridgeController
+    let code: String
+
+    var body: some View {
+        HStack(alignment: .top) {
+            Text(code)
+                .font(.callout.monospaced())
+                .textSelection(.enabled)
+                .lineLimit(3)
+                .truncationMode(.middle)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            Button("Copy") { controller.copyToPasteboard(code) }
+        }
     }
 }

@@ -104,7 +104,7 @@ func PSK(secret string) []byte {
 type RefusedError struct{}
 
 func (RefusedError) Error() string {
-	return "Zubi refused the key; it was deleted or regenerated. Pair again with a new code from Settings › Keys"
+	return "Zubi refused the key; it was deleted or regenerated. Pair again with a new code from Zubi › Settings › Clients: `zubi pair -`"
 }
 
 // UnavailableError is any other failure to reach the Mac: the relay, or the Mac on it.
@@ -121,15 +121,47 @@ func explain(err error) error {
 	var hs *websocket.HandshakeError
 	var closeErr *websocket.CloseError
 	switch {
-	case errors.As(err, &hs) && hs.Status == 404:
-		return errors.New("the Mac isn't connected to the relay: check that Zubi runs there with the relay on, " +
-			"and that the Mac is awake")
+	case errors.As(err, &hs):
+		return handshakeProblem(hs)
 	case errors.As(err, &closeErr) && closeErr.Code == CloseKeyRefused:
 		return RefusedError{}
 	case errors.As(err, &closeErr) && closeErr.Reason != "":
 		return errors.New(closeErr.Reason)
 	}
 	return err
+}
+
+// handshakeProblem explains a refused WebSocket. The relay's own refusals carry its words; anything
+// else answered from an address that isn't a relay, usually a tunnel or proxy pointing elsewhere.
+func handshakeProblem(hs *websocket.HandshakeError) error {
+	notRelay := "it isn't a Zubi relay; point the tunnel or proxy at the relay's address, such as " +
+		"http://127.0.0.1:8080, and check that `zubi relay` runs there"
+	switch {
+	case hs.Status == 404 && strings.Contains(hs.Message, "no Zubi is connected"):
+		return errors.New("the Mac isn't connected to the relay: check that Zubi runs there with the relay on " +
+			"(Settings › Connection says Connected), and that the Mac is awake")
+	case hs.Status == 403 && strings.Contains(hs.Message, "only takes wss"):
+		return errors.New("the relay refused the connection as not arriving over HTTPS: its proxy must pass the " +
+			"X-Forwarded-Proto header on")
+	case hs.Status == 429, hs.Status == 503 && strings.Contains(hs.Message, "too many"):
+		return fmt.Errorf("the relay is limiting connections (%s); try again in a minute", hs.Message)
+	case hs.Status == 502, hs.Status == 503, hs.Status == 504, hs.Status >= 520 && hs.Status <= 530:
+		return fmt.Errorf("the relay's address is a proxy or tunnel with nothing answering behind it (%d); check "+
+			"that `zubi relay` runs, and that the tunnel points at its address, such as http://127.0.0.1:8080", hs.Status)
+	}
+	said := ""
+	if hs.Message != "" {
+		said = fmt.Sprintf(": %q", firstLine(hs.Message, 60))
+	}
+	return fmt.Errorf("the relay's address answers (%d%s), but %s", hs.Status, said, notRelay)
+}
+
+func firstLine(s string, max int) string {
+	s, _, _ = strings.Cut(s, "\n")
+	if len(s) > max {
+		s = s[:max] + "…"
+	}
+	return s
 }
 
 // Dial opens a session with the Mac: a WebSocket to the room, then the handshake. tlsConfig may be

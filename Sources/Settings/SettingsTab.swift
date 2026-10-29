@@ -8,8 +8,8 @@ enum SettingsTab: CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .general: return "General"
-        case .server: return "Server"
-        case .keys: return "Keys"
+        case .server: return "Connection"
+        case .keys: return "Clients"
         case .activity: return "Activity"
         case .reminders: return "Reminders"
         case .calendars: return "Calendars"
@@ -21,8 +21,8 @@ enum SettingsTab: CaseIterable, Identifiable {
     var systemImage: String {
         switch self {
         case .general: return "switch.2"
-        case .server: return "network"
-        case .keys: return "key"
+        case .server: return "antenna.radiowaves.left.and.right"
+        case .keys: return "laptopcomputer.and.iphone"
         case .activity: return "clock.arrow.circlepath"
         case .reminders: return "checklist"
         case .calendars: return "calendar"

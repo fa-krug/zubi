@@ -6,69 +6,75 @@
 <h1>Privacy Policy</h1>
 <p class="updated">Last updated: 29 October 2026</p>
 <p>Zubi is built so that your reminders, calendars and notes stay under your control. There is no Zubi
-  account and no Zubi server: the app runs on your Mac and answers only the devices you connect to it.
-  This policy covers the Zubi app, the <code>zubi</code> command-line client, and this website.</p>
+  account, and your data never passes through anyone’s server in a form they can read: the app runs on
+  your Mac and answers only the devices you pair with it, through a relay that only forwards encrypted
+  traffic. This policy covers the Zubi app, the <code>zubi</code> command-line client, the default
+  relay, and this website.</p>
 <h2>Controller</h2>
 <p>Sascha Krug, Röntgenstraße 37, 82152 Planegg, Germany,
   <a href="mailto:info@fa-krug.de">info@fa-krug.de</a>. See the <a href="imprint.html">imprint</a>.</p>
 <h2>The Zubi app</h2>
 <p>With your permission, the app reads Reminders, Calendar and Notes on your Mac, and adds and edits
   items in them where you allowed it. It serves only the lists, calendars and folders you shared, makes
-  changes only in those you set to Read &amp; Write, and answers only requests carrying the API key it
-  generated. It never deletes anything. We never receive any of this data.</p>
+  changes only in those you set to Read &amp; Write, and answers only devices holding a pairing code it
+  created. It never deletes anything. We never receive any of this data.</p>
 <p>Stored on your Mac, and nowhere else:</p>
 <ul>
-  <li>The keys you created for your devices, with their names, in your Keychain, and when each was
-    last used. With a relay on, also the key that names this Mac’s room on the relay.</li>
-  <li>The activity log: the last 500 things created or edited through the API, with the time, the key’s
-    name and the item’s title, in <code>~/Library/Application Support/de.fa-krug.zubi/activity.json</code>.
-    <strong>Clear</strong> under Settings › Activity deletes it.</li>
-  <li>Your settings, including which items you share and the address the server listens on.</li>
-  <li>A short list of recent requests, held in memory while the app runs and shown in the menu.</li>
+  <li>The clients you added, with their names and the keys in their pairing codes, in your Keychain,
+    and when each last connected; also the key that names this Mac’s room on the relay.</li>
+  <li>The activity log: the last 500 things your devices created or edited, with the time, the
+    client’s name and the item’s title, in
+    <code>~/Library/Application Support/de.fa-krug.zubi/activity.json</code>. <strong>Clear</strong>
+    under Settings › Activity deletes it.</li>
+  <li>Your settings, including which items you share and, if you set one, your own relay’s address.</li>
+  <li>A short list of recent requests, held in memory while the app runs.</li>
   <li>The result of the last update check, in the app’s cache folder.</li>
 </ul>
 <h2>Connections the app makes</h2>
 <ul>
-  <li><strong>Your devices.</strong> The app answers HTTP requests from the devices you connect to it.
-    Whatever those devices or programs do with the data is up to you and them.</li>
-  <li><strong>A relay, if you turn one on.</strong> Under Settings › Server › Relay, the app connects to
-    the relay address you enter and stays connected while the server runs. Devices reach the Mac through
-    it, each session encrypted end to end with that device’s key, so whoever runs the relay can’t read
-    your data. It does see the IP addresses of the Mac and the devices, when they connect, and how much
-    they send. Zubi runs no relay of its own: it is one you run, or one run by someone you chose.</li>
+  <li><strong>The relay.</strong> While it runs, the app stays connected to the relay, by default
+    <code>relay.fa-krug.de</code> (see <a href="#relay">The default relay</a>), or your own if you set one
+    under Settings › Connection. Your devices reach the Mac only through it, each session encrypted end
+    to end with that device’s key, so the relay can’t read what passes through it. Nothing on your Mac
+    accepts connections from the network.</li>
   <li><strong>GitHub, for updates.</strong> Once a day the app asks GitHub’s API for the list of Zubi
     releases, and when you choose to update it downloads the new version from GitHub. GitHub, Inc. sees
     your IP address and a user agent naming Zubi, as it does for any visitor; see the
     <a href="https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement">GitHub
     Privacy Statement</a>. You can switch the daily check off under Settings › General.</li>
-  <li><strong>The API docs page.</strong> <code>/docs</code>, served by your Mac, loads Swagger UI from
-    the jsDelivr content network into the browser that opens it, so jsDelivr sees that browser’s IP
-    address. Nothing else in Zubi uses it, and the page only loads when you open it.</li>
-  <li><strong>Your local network.</strong> While Zubi serves on all interfaces, it announces itself on
-    the local network with Bonjour, giving its name, port and version, so the <code>zubi</code> command can
-    find it. It announces nothing while it listens only on your Mac or on one address.</li>
-  <li><strong>Calendar subscriptions.</strong> A subscription link contains a key, so the calendar app
-    you give it to stores the key and sends it with every refresh. Only Read keys work in a link.</li>
   <li><strong>Notes.app.</strong> Zubi reads and, where allowed, writes Notes by scripting Notes.app on
     the same Mac. This stays on your Mac; changes then sync through iCloud as any change you make in
     Notes would.</li>
 </ul>
+<p>Whatever your paired devices, or the programs on them, do with the data is up to you and them.</p>
+<h2 id="relay">The default relay</h2>
+<p>Unless you choose your own, the Mac and your devices meet at <code>relay.fa-krug.de</code>, run by
+  the controller named above and reached through Cloudflare’s network (Cloudflare, Inc., 101 Townsend
+  St, San Francisco, CA 94107, USA). The relay only forwards traffic it cannot decrypt: it holds no key
+  to your data. To forward it, the relay and Cloudflare process the IP addresses of the Mac and your
+  devices, when they connect, how much they send, and the random IDs that name the Mac’s room and each
+  device’s key. The relay keeps none of this, apart from a log line with the start of the room ID when
+  a Mac connects or leaves; it logs no device addresses. Cloudflare processes connection data under its
+  own <a href="https://www.cloudflare.com/privacypolicy/">privacy policy</a>; data may be transferred
+  to the USA, for which Cloudflare relies on the EU-U.S. Data Privacy Framework and standard
+  contractual clauses. The legal basis is our legitimate interest in connecting your Mac and your
+  devices, which you asked for by using Zubi (Art. 6 (1) (f) GDPR). If you’d rather not use it, run
+  your own relay and enter it under Settings › Connection.</p>
 <h2>The command-line client</h2>
-<p><code>zubi</code> connects only to the Zubi address you configure, or, after <code>zubi pair</code>, to
-  the relay in the pairing code. It stores that address or pairing and the key in a settings file
-  readable only by your user account, and sends nothing anywhere else.</p>
+<p><code>zubi</code> connects only to the relay named in its pairing code, and through it to your Mac.
+  It stores the pairing code in a settings file readable only by your user account, and sends nothing
+  anywhere else. The <code>zubi-client</code> service it sets up keeps that connection and offers it to
+  your own user’s commands through a socket only your account can open.</p>
 <p>The install script on this site (<code>install.sh</code>) asks GitHub’s API for the newest release
   and downloads <code>zubi</code> from GitHub, which sees your IP address as for any download. It
   sends nothing else, and keeps nothing.</p>
-<p>The exception is <code>zubi relay</code>, which you run yourself, on a machine you choose, so a Mac
-  and its clients on different networks can reach each other. To get and renew its certificate, it
-  asks a STUN server run by Cloudflare or Google for its network’s public IP address, and requests the
-  certificate from Let’s Encrypt (Internet Security Research Group, USA), which connects back to that
-  address to check it. Both learn the address of the machine running the relay. Like every publicly
-  trusted certificate, it is recorded in public Certificate Transparency logs, so the address or
-  domain it certifies becomes public. Whoever runs a relay can see which addresses connect to it, when,
-  and how much they send; the relay holds no key to your data and logs no client addresses. Zubi runs
-  no relay of its own.</p>
+<p>If you run a relay of your own with <code>zubi relay</code>, it gets and renews its certificate
+  itself: it asks a STUN server run by Cloudflare or Google for its network’s public IP address, and
+  requests the certificate from Let’s Encrypt (Internet Security Research Group, USA), which connects
+  back to that address to check it. Both learn the address of the machine running the relay. Like every
+  publicly trusted certificate, it is recorded in public Certificate Transparency logs, so the address
+  or domain it certifies becomes public. Whoever runs a relay can see which addresses connect to it,
+  when, and how much they send; the relay holds no key to your data and logs no client addresses.</p>
 <h2>This website</h2>
 <p>This site is hosted by GitHub Pages, a service of GitHub, Inc., 88 Colin P Kelly Jr St, San
   Francisco, CA 94107, USA. When you visit, GitHub processes your IP address and technical request data
@@ -86,14 +92,18 @@
 <h2>Your rights</h2>
 <p>Under the GDPR you have the right to access, rectification, erasure, restriction of processing,
   data portability and objection, and the right to lodge a complaint with a supervisory authority, for
-  example the Bavarian Data Protection Authority (BayLDA). Since we hold no personal data about you
-  ourselves, requests about website logs are best directed to GitHub; we will help where we can.</p>
+  example the Bavarian Data Protection Authority (BayLDA). We store no personal data about you beyond
+  what is described above; requests about website logs are best directed to GitHub, and we will help
+  where we can.</p>
 <h2>Deleting your data</h2>
 <p>Everything the app stores lives on your Mac. Deleting Zubi, its settings
   (<code>~/Library/Preferences/de.fa-krug.zubi.plist</code>), its cache
   (<code>~/Library/Caches/de.fa-krug.zubi</code>), its folder in
   <code>~/Library/Application Support/de.fa-krug.zubi</code> and the <code>de.fa-krug.zubi</code> item in
   Keychain Access removes all of it.</p>
+<p>On a device, <code>zubi unpair</code> removes the pairing code and the <code>zubi-client</code>
+  service; the settings file is <code>~/.config/zubi/config.json</code> on Linux. Removing a client
+  under Settings › Clients on the Mac shuts that device out at once.</p>
 <h2>Changes</h2>
 <p>If this policy changes, the new version will be posted on this page with a new date.</p>
 <h2>Contact</h2>
@@ -104,9 +114,10 @@
 <h1>Datenschutzerklärung</h1>
 <p class="updated">Zuletzt aktualisiert: 29. Oktober 2026</p>
 <p>Zubi ist so gebaut, dass Erinnerungen, Kalender und Notizen unter der eigenen Kontrolle bleiben. Es
-  gibt kein Zubi-Konto und keinen Zubi-Server: Die App läuft auf dem eigenen Mac und antwortet nur den
-  Geräten, die man mit ihr verbindet. Diese Erklärung gilt für die Zubi-App, den Kommandozeilen-Client
-  <code>zubi</code> und diese Website.</p>
+  gibt kein Zubi-Konto, und Ihre Daten laufen nie lesbar über fremde Server: Die App läuft auf dem
+  eigenen Mac und antwortet nur den Geräten, die Sie mit ihr koppeln, über ein Relay, das nur
+  verschlüsselten Verkehr weiterreicht. Diese Erklärung gilt für die Zubi-App, den Kommandozeilen-Client
+  <code>zubi</code>, das voreingestellte Relay und diese Website.</p>
 <h2>Verantwortlicher</h2>
 <p>Sascha Krug, Röntgenstraße 37, 82152 Planegg, Deutschland,
   <a href="mailto:info@fa-krug.de">info@fa-krug.de</a>. Siehe <a href="imprint.html">Impressum</a>.</p>
@@ -114,68 +125,72 @@
 <p>Mit Ihrer Erlaubnis liest die App Erinnerungen, Kalender und Notizen auf dem Mac und legt dort, wo
   Sie es erlauben, Einträge an oder ändert sie. Sie gibt nur die Listen, Kalender und Ordner heraus, die
   Sie freigeben, ändert nur in denen, die Sie auf „Read &amp; Write“ gestellt haben, und antwortet
-  nur auf Anfragen mit dem von ihr erzeugten API-Schlüssel. Sie löscht nie etwas. Wir erhalten keine
-  dieser Daten.</p>
+  nur Geräten mit einem Kopplungscode, den sie selbst erzeugt hat. Sie löscht nie etwas. Wir erhalten
+  keine dieser Daten.</p>
 <p>Auf dem Mac gespeichert, und nirgends sonst:</p>
 <ul>
-  <li>Die Schlüssel, die Sie für Ihre Geräte anlegen, samt Namen, im Schlüsselbund, und wann jeder
-    zuletzt benutzt wurde. Mit eingeschaltetem Relay auch der Schlüssel, der den Raum dieses Macs auf dem
+  <li>Die angelegten Clients samt Namen und den Schlüsseln ihrer Kopplungscodes, im Schlüsselbund, und
+    wann sich jeder zuletzt verbunden hat; außerdem der Schlüssel, der den Raum dieses Macs auf dem
     Relay bezeichnet.</li>
-  <li>Das Aktivitätsprotokoll: die letzten 500 über die API angelegten oder geänderten Einträge mit
-    Zeit, Name des Schlüssels und Titel, in
+  <li>Das Aktivitätsprotokoll: die letzten 500 von Ihren Geräten angelegten oder geänderten Einträge
+    mit Zeit, Name des Clients und Titel, in
     <code>~/Library/Application Support/de.fa-krug.zubi/activity.json</code>. <strong>Clear</strong>
     unter Settings › Activity entfernt es.</li>
-  <li>Ihre Einstellungen, darunter die freigegebenen Elemente und die Adresse, auf der der Server lauscht.</li>
-  <li>Eine kurze Liste der letzten Anfragen, nur im Arbeitsspeicher, solange die App läuft, und im Menü angezeigt.</li>
+  <li>Ihre Einstellungen, darunter die freigegebenen Elemente und, falls eingetragen, die Adresse Ihres
+    eigenen Relays.</li>
+  <li>Eine kurze Liste der letzten Anfragen, nur im Arbeitsspeicher, solange die App läuft.</li>
   <li>Das Ergebnis der letzten Update-Prüfung, im Cache-Ordner der App.</li>
 </ul>
 <h2>Verbindungen der App</h2>
 <ul>
-  <li><strong>Ihre Geräte.</strong> Die App beantwortet HTTP-Anfragen der Geräte, die Sie mit ihr
-    verbinden. Was diese Geräte oder Programme mit den Daten tun, liegt bei Ihnen und ihnen.</li>
-  <li><strong>Ein Relay, wenn Sie eines einschalten.</strong> Unter Settings › Server › Relay verbindet
-    sich die App mit der eingetragenen Relay-Adresse und bleibt verbunden, solange der Server läuft.
-    Geräte erreichen den Mac darüber, jede Sitzung Ende-zu-Ende verschlüsselt mit dem Schlüssel des
-    Geräts, sodass der Betreiber des Relays Ihre Daten nicht lesen kann. Er sieht aber die IP-Adressen
-    des Macs und der Geräte, wann sie sich verbinden und wie viel sie senden. Zubi selbst betreibt kein
-    Relay: Es ist eines, das Sie betreiben, oder das jemand betreibt, den Sie gewählt haben.</li>
+  <li><strong>Das Relay.</strong> Solange sie läuft, bleibt die App mit dem Relay verbunden,
+    voreingestellt <code>relay.fa-krug.de</code> (siehe <a href="#relay-de">Das voreingestellte
+    Relay</a>), oder Ihrem eigenen, falls unter Settings › Connection eingetragen. Ihre Geräte erreichen
+    den Mac nur darüber, jede Sitzung Ende-zu-Ende verschlüsselt mit dem Schlüssel des Geräts, sodass
+    das Relay nicht lesen kann, was hindurchgeht. Nichts auf dem Mac nimmt Verbindungen aus dem Netz
+    an.</li>
   <li><strong>GitHub, für Updates.</strong> Einmal täglich fragt die App bei der GitHub-API die Liste
     der Zubi-Versionen ab, und wenn Sie ein Update wählen, lädt sie die neue Version von GitHub. GitHub,
     Inc. sieht dabei Ihre IP-Adresse und eine Kennung mit dem Namen Zubi, wie bei jedem Besucher; siehe
     die <a href="https://docs.github.com/site-policy/privacy-policies/github-general-privacy-statement">Datenschutzerklärung
     von GitHub</a>. Die tägliche Prüfung lässt sich unter Settings › General abschalten.</li>
-  <li><strong>Die API-Dokumentation.</strong> <code>/docs</code>, vom eigenen Mac ausgeliefert, lädt
-    Swagger UI aus dem Content-Netzwerk jsDelivr in den Browser, der die Seite öffnet; jsDelivr sieht
-    dabei dessen IP-Adresse. Sonst nutzt Zubi jsDelivr nicht, und die Seite lädt nur, wenn Sie sie öffnen.</li>
-  <li><strong>Ihr lokales Netzwerk.</strong> Solange Zubi auf allen Schnittstellen antwortet, kündigt
-    es sich per Bonjour im lokalen Netzwerk an, mit Name, Port und Version, damit der Befehl
-    <code>zubi</code> es findet. Lauscht es nur auf dem Mac oder einer einzelnen Adresse, kündigt es
-    nichts an.</li>
-  <li><strong>Kalender-Abonnements.</strong> Ein Abo-Link enthält einen Schlüssel; die Kalender-App,
-    der Sie ihn geben, speichert ihn und sendet ihn bei jeder Aktualisierung. In einem Link
-    funktionieren nur Schlüssel mit Lesezugriff.</li>
   <li><strong>Notizen-App.</strong> Zubi liest Notizen und schreibt sie, wo erlaubt, indem es die
     Notizen-App auf demselben Mac steuert. Das bleibt auf dem Mac; Änderungen werden anschließend wie
     jede eigene Änderung über iCloud synchronisiert.</li>
 </ul>
+<p>Was Ihre gekoppelten Geräte oder die Programme darauf mit den Daten tun, liegt bei Ihnen und ihnen.</p>
+<h2 id="relay-de">Das voreingestellte Relay</h2>
+<p>Sofern Sie kein eigenes wählen, treffen sich der Mac und Ihre Geräte auf
+  <code>relay.fa-krug.de</code>, betrieben vom oben genannten Verantwortlichen und erreichbar über das
+  Netz von Cloudflare (Cloudflare, Inc., 101 Townsend St, San Francisco, CA 94107, USA). Das Relay
+  reicht nur Verkehr weiter, den es nicht entschlüsseln kann: Es hat keinen Schlüssel zu Ihren Daten.
+  Zum Weiterreichen verarbeiten das Relay und Cloudflare die IP-Adressen des Macs und Ihrer Geräte, wann
+  sie sich verbinden, wie viel sie senden, und die zufälligen Kennungen des Raums des Macs und des
+  Schlüssels jedes Geräts. Das Relay speichert davon nichts außer einer Protokollzeile mit dem Anfang
+  der Raum-Kennung, wenn ein Mac sich verbindet oder trennt; Adressen von Geräten protokolliert es
+  nicht. Cloudflare verarbeitet Verbindungsdaten nach seiner eigenen
+  <a href="https://www.cloudflare.com/de-de/privacypolicy/">Datenschutzerklärung</a>; dabei können Daten
+  in die USA übermittelt werden, wofür sich Cloudflare auf das EU-U.S. Data Privacy Framework und
+  Standardvertragsklauseln stützt. Rechtsgrundlage ist unser berechtigtes Interesse, Ihren Mac und Ihre
+  Geräte zu verbinden, wie Sie es mit der Nutzung von Zubi wünschen (Art. 6 Abs. 1 lit. f DSGVO). Wer
+  es nicht nutzen möchte, betreibt ein eigenes Relay und trägt es unter Settings › Connection ein.</p>
 <h2>Der Kommandozeilen-Client</h2>
-<p><code>zubi</code> verbindet sich nur mit der eingerichteten Zubi-Adresse oder, nach
-  <code>zubi pair</code>, mit dem Relay aus dem Kopplungscode. Adresse oder Kopplung und Schlüssel
-  speichert er in einer Einstellungsdatei, die nur Ihr Benutzerkonto lesen kann, und sendet nichts an
-  andere Stellen.</p>
+<p><code>zubi</code> verbindet sich nur mit dem Relay aus seinem Kopplungscode und darüber mit Ihrem
+  Mac. Den Kopplungscode speichert er in einer Einstellungsdatei, die nur Ihr Benutzerkonto lesen kann,
+  und sendet nichts an andere Stellen. Der eingerichtete Dienst <code>zubi-client</code> hält diese
+  Verbindung und bietet sie den Befehlen Ihres Benutzers über einen Socket an, den nur Ihr Konto öffnen
+  kann.</p>
 <p>Das Installationsskript dieser Website (<code>install.sh</code>) fragt bei der GitHub-API die
   neueste Version ab und lädt <code>zubi</code> von GitHub herunter; GitHub sieht dabei Ihre IP-Adresse
   wie bei jedem Download. Es sendet sonst nichts und speichert nichts.</p>
-<p>Die Ausnahme ist <code>zubi relay</code>, das Sie selbst auf einem Rechner Ihrer Wahl betreiben,
-  damit ein Mac und seine Clients in verschiedenen Netzen einander erreichen. Um sein Zertifikat zu
-  beziehen und zu erneuern, fragt es einen STUN-Server von Cloudflare oder Google nach der öffentlichen
-  IP-Adresse seines Netzes und beantragt das Zertifikat bei Let’s Encrypt (Internet Security Research
-  Group, USA), das sich zur Prüfung mit dieser Adresse verbindet. Beide erfahren dabei die Adresse des
-  Rechners, auf dem das Relay läuft. Wie jedes öffentlich vertrauenswürdige Zertifikat wird es in
-  öffentlichen Certificate-Transparency-Logs verzeichnet; die zertifizierte Adresse oder Domain wird
-  damit öffentlich. Wer ein Relay betreibt, sieht, welche Adressen sich wann verbinden und wie viel sie
-  senden; das Relay hat keinen Schlüssel zu Ihren Daten und protokolliert keine Client-Adressen. Zubi
-  selbst betreibt kein Relay.</p>
+<p>Betreiben Sie mit <code>zubi relay</code> ein eigenes Relay, bezieht und erneuert es sein Zertifikat
+  selbst: Es fragt einen STUN-Server von Cloudflare oder Google nach der öffentlichen IP-Adresse seines
+  Netzes und beantragt das Zertifikat bei Let’s Encrypt (Internet Security Research Group, USA), das
+  sich zur Prüfung mit dieser Adresse verbindet. Beide erfahren dabei die Adresse des Rechners, auf dem
+  das Relay läuft. Wie jedes öffentlich vertrauenswürdige Zertifikat wird es in öffentlichen
+  Certificate-Transparency-Logs verzeichnet; die zertifizierte Adresse oder Domain wird damit
+  öffentlich. Wer ein Relay betreibt, sieht, welche Adressen sich wann verbinden und wie viel sie
+  senden; das Relay hat keinen Schlüssel zu Ihren Daten und protokolliert keine Client-Adressen.</p>
 <h2>Diese Website</h2>
 <p>Diese Website wird von GitHub Pages bereitgestellt, einem Dienst der GitHub, Inc., 88 Colin P Kelly
   Jr St, San Francisco, CA 94107, USA. Beim Besuch verarbeitet GitHub Ihre IP-Adresse und technische
@@ -194,15 +209,18 @@
 <h2>Ihre Rechte</h2>
 <p>Nach der DSGVO haben Sie das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der
   Verarbeitung, Datenübertragbarkeit und Widerspruch sowie das Recht, sich bei einer Aufsichtsbehörde zu
-  beschweren, etwa beim Bayerischen Landesamt für Datenschutzaufsicht (BayLDA). Da wir selbst keine
-  personenbezogenen Daten über Sie speichern, richten sich Anfragen zu Website-Logs am besten an GitHub;
-  wir helfen gern, wo wir können.</p>
+  beschweren, etwa beim Bayerischen Landesamt für Datenschutzaufsicht (BayLDA). Über das oben Beschriebene hinaus
+  speichern wir keine personenbezogenen Daten über Sie; Anfragen zu Website-Logs richten sich am besten
+  an GitHub, wir helfen gern, wo wir können.</p>
 <h2>Löschen von Daten</h2>
 <p>Alles, was die App speichert, liegt auf dem Mac. Das Löschen von Zubi, seiner Einstellungen
   (<code>~/Library/Preferences/de.fa-krug.zubi.plist</code>), seines Caches
   (<code>~/Library/Caches/de.fa-krug.zubi</code>), seines Ordners
   <code>~/Library/Application Support/de.fa-krug.zubi</code> und des Eintrags <code>de.fa-krug.zubi</code> in der Schlüsselbundverwaltung
   entfernt alles.</p>
+<p>Auf einem Gerät entfernt <code>zubi unpair</code> den Kopplungscode und den Dienst
+  <code>zubi-client</code>; die Einstellungsdatei ist unter Linux <code>~/.config/zubi/config.json</code>.
+  Wer einen Client unter Settings › Clients auf dem Mac entfernt, sperrt das Gerät sofort aus.</p>
 <h2>Änderungen</h2>
 <p>Ändert sich diese Erklärung, wird die neue Fassung mit neuem Datum auf dieser Seite veröffentlicht.</p>
 <h2>Kontakt</h2>

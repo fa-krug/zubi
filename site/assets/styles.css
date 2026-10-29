@@ -112,7 +112,7 @@ pre .dim {
   color: var(--code-dim);
 }
 
-/* A code block with its Copy button; assets/copy.js wraps each one. */
+/* A code block with its copy button, an icon in the top-right corner; assets/copy.js wraps each. */
 .codeblock {
   position: relative;
 }
@@ -121,15 +121,18 @@ pre .dim {
   position: absolute;
   top: 8px;
   right: 8px;
-  padding: 3px 10px;
-  border: 1px solid color-mix(in srgb, var(--code-dim) 45%, transparent);
-  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--code-dim) 40%, transparent);
+  border-radius: 7px;
   background: var(--code-bg);
   color: var(--code-dim);
-  font: 600 12px/1.4 var(--sans);
   cursor: pointer;
   opacity: 0;
-  transition: opacity 0.15s, color 0.15s;
+  transition: opacity 0.15s, color 0.15s, border-color 0.15s;
 }
 
 .codeblock:hover > .copy,
@@ -138,9 +141,19 @@ pre .dim {
   opacity: 1;
 }
 
-.codeblock > .copy:hover,
-.codeblock > .copy[data-copied] {
+.codeblock > .copy:hover {
   color: var(--code-ink);
+  border-color: color-mix(in srgb, var(--code-ink) 45%, transparent);
+}
+
+.codeblock > .copy[data-copied] {
+  color: var(--teal);
+  border-color: var(--teal);
+}
+
+.codeblock > .copy:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
 }
 
 /* No hover on touch screens, so the button is always there. */
@@ -148,6 +161,15 @@ pre .dim {
   .codeblock > .copy {
     opacity: 1;
   }
+}
+
+.copy-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .wrap {
@@ -667,7 +689,6 @@ h3 {
   padding: 22px 24px;
   border-radius: var(--radius);
   background: var(--teal-wash);
-  max-width: 820px;
 }
 
 .callout p {
@@ -732,7 +753,7 @@ h3 {
   text-decoration: underline;
 }
 
-/* --- Long-form pages: docs, API, legal --- */
+/* --- Long-form pages: docs, legal --- */
 
 .page {
   display: grid;
@@ -831,6 +852,11 @@ h3 {
   margin-top: 6px;
 }
 
+/* A code block inside a step, with the step's text going on after it. */
+.prose li pre {
+  margin: 12px 0;
+}
+
 .prose .lede {
   margin-top: 16px;
 }
@@ -919,52 +945,6 @@ h3 {
   .components {
     grid-template-columns: 1fr;
   }
-}
-
-/* API reference. */
-.op {
-  margin-top: 30px;
-  padding-top: 22px;
-  border-top: 1px solid var(--line);
-}
-
-.op-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 10px;
-}
-
-.verb {
-  font-family: var(--mono);
-  font-size: 13px;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 6px;
-  background: var(--teal-wash);
-  color: var(--teal-ink);
-}
-
-.op-path {
-  font-family: var(--mono);
-  font-size: 17px;
-  font-weight: 600;
-}
-
-.op-auth {
-  font-size: 13px;
-  color: var(--stone);
-}
-
-.schema td:first-child {
-  font-family: var(--mono);
-  font-size: 14px;
-  white-space: nowrap;
-}
-
-.optional {
-  color: var(--stone);
-  font-size: 13px;
 }
 
 /* --- Language toggle (legal pages) --- */

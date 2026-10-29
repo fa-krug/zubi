@@ -1,31 +1,15 @@
 import Foundation
 
 enum SettingsKey {
-    static let bindMode = "bindMode"
-    static let customHost = "customHost"
-    static let port = "port"
     static let keepAwake = "keepAwake"
     /// [key id: Date]. Not secret, and written far too often for the Keychain.
     static let keyLastUsed = "keyLastUsed"
     /// Set once Settings has been shown, so a first launch with nothing shared opens it only once.
     static let settingsOpened = "settingsOpened"
-    static let relayEnabled = "relayEnabled"
-    /// The relay's wss:// address.
+    /// The user's own relay's wss:// address; unset or empty means Zubi's default relay.
     static let relayURL = "relayURL"
-}
-
-enum BindMode: String, CaseIterable, Identifiable {
-    case localhost, allInterfaces, custom
-
-    var id: String { rawValue }
-
-    var label: String {
-        switch self {
-        case .localhost: "Localhost only (use SSH tunnel)"
-        case .allInterfaces: "All interfaces"
-        case .custom: "Specific IP (e.g. Tailscale)"
-        }
-    }
+    /// Set once Zubi registered itself to start at login, so turning that off sticks.
+    static let loginItemSet = "loginItemSet"
 }
 
 /// Which items the API may expose, and which of those it may also write to. Read per request, so

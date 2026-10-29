@@ -108,11 +108,11 @@ func TestMCPToolsMatchSpec(t *testing.T) {
 	}
 }
 
-// TestMCPCoversOperations: every operation an assistant could use has a tool. The stream, the
-// calendar feed and the service pages are for other clients.
+// TestMCPCoversOperations: every operation an assistant could use has a tool. The stream and the
+// health check are for other uses.
 func TestMCPCoversOperations(t *testing.T) {
 	api := loadSpec(t)
-	notTools := []string{"GET /api/changes", "GET /api/calendars/{id}/events.ics", "GET /health", "GET /openapi.json", "GET /docs"}
+	notTools := []string{"GET /api/changes", "GET /health"}
 	for _, path := range keys(api.Paths) {
 		for _, method := range []string{"GET", "PUT", "POST", "PATCH", "DELETE"} {
 			if api.Paths[path].operation(method) == nil || slices.Contains(notTools, method+" "+path) {
@@ -440,10 +440,10 @@ func TestMCPWithoutKey(t *testing.T) {
 		t.Errorf("initialize should work without a key: %v", byID["1"])
 	}
 	text, isError := toolText(t, byID["2"])
-	if !isError || !strings.Contains(text, "ZUBI_API_KEY") {
+	if !isError || !strings.Contains(text, "isn't paired") {
 		t.Errorf("isError %v, text %q", isError, text)
 	}
-	if !strings.Contains(stderr, "no API key") || len(f.seen()) != 0 {
+	if !strings.Contains(stderr, "not paired") || len(f.seen()) != 0 {
 		t.Errorf("stderr %q, sent %v", stderr, f.seen())
 	}
 }
@@ -453,7 +453,7 @@ func TestMCPErrorTexts(t *testing.T) {
 	f := newFakeZubi(t)
 	f.answer("/api/notes/folders", 503, string(must(t, "error_unavailable.json")))
 	byID, _, _ := mcpSession(t, []string{"--url", f.URL, "--key", "wrong"}, call(1, "get_key", `{}`))
-	if text, isError := toolText(t, byID["1"]); !isError || !strings.Contains(text, "401") || !strings.Contains(text, "Settings › Keys") {
+	if text, isError := toolText(t, byID["1"]); !isError || !strings.Contains(text, "401") || !strings.Contains(text, "Settings › Clients") {
 		t.Errorf("401: %v %q", isError, text)
 	}
 	byID, _, _ = mcpSession(t, f.args(),

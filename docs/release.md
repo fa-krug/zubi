@@ -14,8 +14,8 @@ changes it:
 | `release-cli.yml` | `cli/`, the workflow | `cli/v<version>` | never |
 
 A push that changes only Markdown elsewhere, `docs/` or the other product releases nothing new. A
-change to `openapi.json` lives in `Packages/` and so ships the app, which serves it; the CLI's tests
-still run against it in that release's gate. Either workflow can also be started by hand
+change to `openapi.json` lives in `Packages/` and so ships the app; the CLI's tests still run against
+it in that release's gate. Either workflow can also be started by hand
 (`workflow_dispatch`).
 
 Both are numbered the same way: `MAJOR.MINOR` from a file (`MARKETING_VERSION` in `project.yml` for
@@ -24,10 +24,10 @@ strictly newer than the last. **The app's workflow keeps the file name `release.
 run numbers per workflow file, so a renamed file would restart at 1 and the updater would see every
 new build as older than the installed one.
 
-The website deploys from a third workflow, `pages.yml`, when a push changes `site/`,
-`openapi.json` (its API reference is generated from it) or the workflow. It runs
+The website deploys from a third workflow, `pages.yml`, when a push changes `site/` or
+the workflow. It runs
 `python3 site/tools/build.py _site` and publishes `_site` to GitHub Pages at
-<https://fa-krug.github.io/zubi/>; a newer push cancels a deployment still running. It needs Pages'
+<https://zubi.fa-krug.de/>; a newer push cancels a deployment still running. It needs Pages'
 source set to GitHub Actions once, under the repository's Settings › Pages.
 
 ## The gate: `tests.yml`
@@ -103,7 +103,7 @@ Every channel installs the archives on the GitHub Release, pinned by their check
 | Channel | Systems | Install |
 | --- | --- | --- |
 | GitHub Releases | all | download the archive for your system |
-| Install script `site/install.sh` | Linux x86-64, ARM64 and ARMv7, macOS | `curl -fsSL https://fa-krug.github.io/zubi/install.sh \| sh` |
+| Install script `site/install.sh` | Linux x86-64, ARM64 and ARMv7, macOS | `curl -fsSL https://zubi.fa-krug.de/install.sh \| sh` |
 | Homebrew tap `fa-krug/homebrew-tap` | macOS, Linux x86-64 and ARM64 | `brew install fa-krug/tap/zubi` |
 | Scoop bucket `fa-krug/scoop-bucket` | Windows x86-64 and ARM64 | `scoop bucket add fa-krug https://github.com/fa-krug/scoop-bucket` then `scoop install fa-krug/zubi` |
 | Go | anything Go builds for | `go install github.com/fa-krug/zubi/cli/cmd/zubi@latest` |

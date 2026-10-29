@@ -59,7 +59,8 @@ private struct FirstLaunchSettings: ViewModifier {
             guard SettingsTab.debugLaunchTab == nil else { return }
             #endif
             guard controller.takeFirstLaunch() else { return }
-            controller.requestedSettingsTab = .reminders
+            // Where a new user sees the connection come up and their first pairing code.
+            controller.requestedSettingsTab = .server
             openWindow(id: "settings")
             NSApp.activate(ignoringOtherApps: true)
         }

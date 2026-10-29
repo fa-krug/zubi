@@ -1,14 +1,12 @@
 name: Deploy website
 
-# Builds site/ into _site/ and publishes it to GitHub Pages, only when a push changes the site,
-# the API spec its reference page is generated from, or this workflow. One-time setup: Settings ›
-# Pages › Source: "GitHub Actions".
+# Builds site/ into _site/ and publishes it to GitHub Pages, only when a push changes the site or
+# this workflow. One-time setup: Settings › Pages › Source: "GitHub Actions".
 on:
   push:
     branches: [main]
     paths:
       - 'site/**'
-      - 'Packages/ZubiAPI/Sources/ZubiAPI/Resources/openapi.json'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 

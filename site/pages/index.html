@@ -1,14 +1,13 @@
-<!-- {"title": "Zubi", "description": "A free macOS menu bar app that serves the Reminders lists, calendars and Notes folders you choose over a small HTTP API, so a Raspberry Pi, a script or an AI agent can read them, and add and edit them where you allow it.", "nav": "home"} -->
+<!-- {"title": "Zubi", "description": "A free macOS menu bar app that gives the Reminders lists, calendars and Notes folders you choose to your other devices, a Raspberry Pi, a Linux laptop or an AI agent, from anywhere and end-to-end encrypted.", "nav": "home"} -->
 <section class="hero">
   <div class="wrap">
     <h1>Your Mac’s reminders, calendars and notes, on everything else.</h1>
-    <p class="lede">Zubi is a free menu bar app that serves the Reminders lists, calendars and Notes
-      folders you choose over a small HTTP API. A Raspberry Pi on the wall, a Linux laptop, a script
-      or an AI agent can read them, and add and edit them where you allow it. The data never leaves
-      your Mac for anyone else’s server.</p>
+    <p class="lede">A free Mac app that shares the reminders, calendars and notes you choose with your
+      other devices: a Raspberry Pi, a Linux laptop, an AI assistant. From anywhere, encrypted. Install
+      it, paste a code, done.</p>
     <div class="hero-actions">
       <a class="button button-primary" href="https://github.com/fa-krug/zubi/releases/latest">Download for Mac</a>
-      <a class="button button-quiet" href="#start">Set it up in three steps</a>
+      <a class="button button-quiet" href="#start">How it works</a>
       <span class="hero-note">macOS 14 or later. Free and open source.</span>
     </div>
 
@@ -28,7 +27,7 @@
           <path class="deck" d="M 0 34 L 100 34"/>
         </svg>
         <span class="traveller"></span>
-        <span class="span-caption">your network</span>
+        <span class="span-caption">anywhere, encrypted</span>
       </div>
       <div class="bank term" aria-hidden="true">
         <div class="bank-title"><strong>pi@kitchen</strong><span>Raspberry Pi</span></div>
@@ -42,139 +41,71 @@
   </div>
 </section>
 
+<section class="section" id="start">
+  <div class="wrap">
+    <h2>Three steps</h2>
+    <ol class="steps">
+      <li>
+        <h3>Install Zubi on your Mac</h3>
+        <p><a href="https://github.com/fa-krug/zubi/releases/latest">Download it</a>, move it to
+          Applications and open it. It connects on its own and starts with your Mac from now on.</p>
+      </li>
+      <li>
+        <h3>Choose what to share</h3>
+        <p>In Zubi’s Settings, pick the lists, calendars and folders your devices may see. Everything
+          else stays private.</p>
+      </li>
+      <li>
+        <h3>Pair a device</h3>
+        <p>Install the client, run it, and paste the code from Zubi’s menu
+          (<strong>Copy Pairing Code</strong>).</p>
+<pre>curl -fsSL https://zubi.fa-krug.de/install.sh | sh
+zubi</pre>
+      </li>
+    </ol>
+  </div>
+</section>
+
 <section class="section" id="uses">
   <div class="wrap">
-    <h2>Where you can use it</h2>
-    <p class="section-intro">Anything that can make an HTTP request can read what you share: plain JSON,
-      described in OpenAPI. For terminals and agents there is <code>zubi</code>, a small command-line
-      client for macOS, Linux and Windows.</p>
+    <h2>Then use it</h2>
     <ul class="uses">
       <li>
         <div>
-          <h3>A Raspberry Pi display</h3>
-          <p>Put today’s events and the shopping list on a screen by the front door or the fridge.
-            The Pi reaches your Mac through a relay, end-to-end encrypted, an SSH tunnel or your
-            Tailscale network.</p>
+          <h3>On a display</h3>
+          <p>Today’s events and the shopping list on a Raspberry Pi by the door, updated when
+            something changes.</p>
         </div>
 <pre>zubi events
-zubi reminders --list Groceries</pre>
+zubi watch</pre>
       </li>
       <li>
         <div>
-          <h3>Home Assistant and Node-RED</h3>
-          <p>A REST sensor turns your reminders into a number on a dashboard, or a trigger for an
-            automation when something is overdue.</p>
+          <h3>With an AI assistant</h3>
+          <p>Let Claude or any MCP client read your schedule and tick off reminders.</p>
         </div>
-<pre>sensor:
-  - platform: rest
-    name: Reminders due today
-    resource: http://mac.local:8787/api/reminders?due=today
-    headers:
-      Authorization: !secret zubi_bearer
-    value_template: "{{ value_json.reminders | count }}"</pre>
-      </li>
-      <li>
-        <div>
-          <h3>AI agents</h3>
-          <p>Let Claude Code, Codex or any agent with a shell read your schedule, and, in the lists and
-            calendars you open for writing, add events and tick off reminders. <code>--json</code> prints
-            the API’s answer as-is, and every failure has its own exit code.</p>
-        </div>
-<pre>zubi events --from 2026-11-02 --to 2026-11-06 --json</pre>
-      </li>
-      <li>
-        <div>
-          <h3>Scripts and cron jobs</h3>
-          <p>A morning summary by email, a reminder count in your shell prompt, or a backup of a
-            Notes folder as plain text.</p>
-        </div>
-<pre>zubi reminders --due overdue --json \
-  | jq -r '.reminders[].title'</pre>
-      </li>
-      <li>
-        <div>
-          <h3>Linux and Windows</h3>
-          <p>Your Apple calendars and reminders in a terminal on the computers Apple doesn’t make
-            apps for.</p>
-        </div>
-<pre>zubi calendars
-zubi notes --folder Recipes</pre>
-      </li>
-      <li>
-        <div>
-          <h3>Your own app</h3>
-          <p>Every endpoint is described in an OpenAPI document, so you can generate a client in
-            any language, or read the <a href="api.html">API reference</a>.</p>
-        </div>
-<pre>curl -H "Authorization: Bearer $ZUBI_KEY" \
-  http://127.0.0.1:8787/api/calendars</pre>
+<pre>zubi mcp</pre>
       </li>
     </ul>
   </div>
 </section>
 
-<section class="section" id="start">
-  <div class="wrap">
-    <h2>Set it up in three steps</h2>
-    <p class="section-intro">About three minutes on your Mac. Nothing is shared until step two, and
-      only what you choose.</p>
-    <ol class="steps">
-      <li>
-        <h3>Install</h3>
-        <p><a href="https://github.com/fa-krug/zubi/releases/latest">Download Zubi</a>, unzip it and
-          move it to Applications. Open it, and its icon appears in the menu bar. It is signed and
-          notarized, and keeps itself up to date.</p>
-      </li>
-      <li>
-        <h3>Choose what to share</h3>
-        <p>Click the menu bar icon, then <strong>Settings…</strong>. Under <strong>Reminders</strong>,
-          <strong>Calendars</strong> and <strong>Notes</strong>, click <strong>Grant Access</strong>,
-          then set each list, calendar and folder to <strong>Read</strong>, or to
-          <strong>Read &amp; Write</strong> if your devices may also add and edit there.</p>
-      </li>
-      <li>
-        <h3>Make your first call</h3>
-        <p>Under <strong>Keys</strong>, click <strong>Copy Command</strong> and run it in Terminal.
-          You get your shared events back as JSON.</p>
-<pre>curl -H "Authorization: Bearer <span class="dim">&lt;key&gt;</span>" \
-  http://127.0.0.1:8787/api/events</pre>
-      </li>
-    </ol>
-    <div class="callout">
-      <p><strong>Reading from another device?</strong> At first Zubi only answers on your Mac. From
-        any network, <a href="docs.html#relay">go through a relay</a>: turn it on under
-        <strong>Settings › Server</strong> and run <code>zubi pair</code> with a key’s pairing code. Or
-        tunnel to it with <code>ssh -N -L 8787:localhost:8787 you@mac.local</code>, or bind it to your
-        Tailscale address.</p>
-      <p>Then <a href="docs.html#cli">install the command-line client</a> on that device, or call the
-        API directly.</p>
-    </div>
-  </div>
-</section>
-
 <section class="section" id="privacy">
   <div class="wrap">
-    <h2>What Zubi shares, and what it doesn’t</h2>
+    <h2>Private by default</h2>
     <div class="promises">
       <div>
-        <h3>Nothing until you choose</h3>
-        <p>Every list, calendar and folder starts Off, which answers as if it didn’t exist. Read shares
-          it; only Read &amp; Write lets your devices add and edit there. Nothing is ever deleted.</p>
+        <h3>Only what you choose</h3>
+        <p>Nothing is shared until you pick it, and Zubi never deletes anything.</p>
       </div>
       <div>
-        <h3>A key on every request</h3>
-        <p>Each call needs the API key generated on your Mac and kept in its Keychain. You can
-          replace it with one click.</p>
+        <h3>Encrypted end to end</h3>
+        <p>Only your Mac and your devices can read what passes between them. Use Zubi’s relay, or
+          <a href="docs.html#relay">run your own</a>.</p>
       </div>
       <div>
-        <h3>Your Mac only, by default</h3>
-        <p>Zubi listens on <code>127.0.0.1</code> until you decide otherwise, so nothing on your
-          network can reach it by accident.</p>
-      </div>
-      <div>
-        <h3>No cloud, no account</h3>
-        <p>There is no Zubi server. The app talks to your devices, and once a day to GitHub to check
-          for updates, which you can switch off.</p>
+        <h3>No account</h3>
+        <p>Nothing to sign up for, and no tracking.</p>
       </div>
     </div>
   </div>

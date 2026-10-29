@@ -88,7 +88,7 @@ func TestSpecQueryParametersUsed(t *testing.T) {
 				used := slices.ContainsFunc(apiCommands, func(c apiCommand) bool {
 					return c.Method == method && c.Path == path && slices.Contains(c.Query, p.Name)
 				})
-				if !used && !slices.Contains([]string{"GET /openapi.json", "GET /docs"}, method+" "+path) {
+				if !used {
 					t.Errorf("spec drift: %s %s takes query parameter %q, which no command sends", method, path, p.Name)
 				}
 			}
@@ -189,35 +189,13 @@ func TestSpecChange(t *testing.T) {
 	}
 }
 
-// TestSpecFeedKey: the feed URL `zubi feed` prints carries the key where the spec says the
-// feed, and only the feed, reads it.
-func TestSpecFeedKey(t *testing.T) {
-	api := loadSpec(t)
-	feed, _ := lookup("feed")
-	op, _, ok := api.operation(feed.Method, feed.Path)
-	if !ok {
-		t.Fatal("the feed is not in the spec")
-	}
-	if got := api.queryKeyParam(op); got != feedKeyParam {
-		t.Errorf("spec drift: the feed takes the key in query parameter %q, the CLI puts it in %q", got, feedKeyParam)
-	}
-	for path, item := range api.Paths {
-		for _, method := range []string{"GET", "PUT", "POST", "PATCH", "DELETE"} {
-			if op := item.operation(method); op != nil && path != feed.Path && api.queryKeyParam(op) != "" {
-				t.Errorf("spec: %s %s also takes the key in the query; the CLI only ever sends it as a header there", method, path)
-			}
-		}
-	}
-}
-
-// TestSpecOperationsCovered: every API operation has a command, so a new endpoint in the spec
-// shows up here instead of going unnoticed. The documentation pages are for browsers.
+// TestSpecOperationsCovered: every operation has a command or an internal request, so a new
+// endpoint in the spec shows up here instead of going unnoticed.
 func TestSpecOperationsCovered(t *testing.T) {
 	api := loadSpec(t)
-	notForTheCLI := []string{"GET /openapi.json", "GET /docs"} // pages for browsers
 	for _, path := range keys(api.Paths) {
 		for _, method := range []string{"GET", "PUT", "POST", "PATCH", "DELETE", "HEAD", "OPTIONS"} {
-			if api.Paths[path].operation(method) == nil || slices.Contains(notForTheCLI, method+" "+path) {
+			if api.Paths[path].operation(method) == nil {
 				continue
 			}
 			if !slices.ContainsFunc(apiCommands, func(c apiCommand) bool { return c.Method == method && c.Path == path }) {

@@ -1,6 +1,9 @@
 package main
 
-import "strings"
+import (
+	"slices"
+	"strings"
+)
 
 // apiCommand is one request the CLI can make. The table below is the CLI's whole use of the
 // API: run() sends nothing it doesn't describe, Client refuses query parameters, path values and
@@ -23,6 +26,8 @@ type apiCommand struct {
 	Response any
 	// Media is the success body's media type, sent as Accept; "" means application/json.
 	Media string
+	// Internal requests are the CLI's own (`zubi`'s status), never a command someone types.
+	Internal bool
 }
 
 func (c apiCommand) media() string {
@@ -61,14 +66,16 @@ var apiCommands = []apiCommand{
 	{Name: "note edit", Method: "PATCH", Path: "/api/note", Query: []string{"id"}, Body: NoteUpdate{}, Response: Note{}},
 
 	{Name: "watch", Method: "GET", Path: "/api/changes", Media: "text/event-stream"},
-	{Name: "feed", Method: "GET", Path: "/api/calendars/{id}/events.ics", Query: []string{"from", "to"}, Media: "text/calendar"},
-	{Name: "key", Method: "GET", Path: "/api/key", Response: KeyInfo{}},
-	{Name: "health", Method: "GET", Path: "/health", Public: true, Media: "text/plain"},
+	{Name: "key", Method: "GET", Path: "/api/key", Response: KeyInfo{}, Internal: true},
+	{Name: "health", Method: "GET", Path: "/health", Public: true, Media: "text/plain", Internal: true},
 }
 
 // localCommands are the documented commands that send no request of their own through
 // apiCommands. ("help" prints the usage text.) mcp's tools send requests from apiCommands.
-var localCommands = []string{"mcp", "pair", "tunnel", "relay", "config", "config discover", "version"}
+var localCommands = []string{"pair", "unpair", "mcp", "relay", "version"}
+
+// hiddenCommands work but aren't documented: `serve` is what the client service runs.
+var hiddenCommands = []string{"serve"}
 
 func lookup(name string) (apiCommand, bool) {
 	for _, c := range apiCommands {
@@ -91,7 +98,7 @@ func hasSubcommands(top string) bool {
 
 // topLevel reports whether word is the first word of some command.
 func topLevel(word string) bool {
-	if word == "help" {
+	if word == "help" || slices.Contains(hiddenCommands, word) {
 		return true
 	}
 	for _, name := range commandNames() {
@@ -106,7 +113,9 @@ func topLevel(word string) bool {
 func commandNames() []string {
 	var names []string
 	for _, c := range apiCommands {
-		names = append(names, c.Name)
+		if !c.Internal {
+			names = append(names, c.Name)
+		}
 	}
 	return append(names, localCommands...)
 }

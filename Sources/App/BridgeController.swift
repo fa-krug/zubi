@@ -58,18 +58,19 @@ final class BridgeController: ObservableObject {
         }
     }
     @Published private(set) var isKeepingAwake = false
-    @Published private(set) var isAdvertising = false
-    @Published var bindMode: BindMode
-    @Published var customHost: String
-    @Published var port: Int
 
     // MARK: Relay
 
-    @Published var relayEnabled: Bool
-    /// The relay's wss:// address, as typed; applied with `applyRelaySettings()`.
-    @Published var relayURL: String
-    /// Nil while the relay is off or the server stopped.
+    /// Where clients meet this Mac unless the user runs their own relay.
+    static let defaultRelay = "wss://relay.fa-krug.de"
+    /// The user's own relay's wss:// address; empty means the default. Applied with
+    /// `applyRelaySettings()`.
+    @Published var ownRelay: String
+    /// Nil while the server isn't running.
     @Published private(set) var relayStatus: RelayHost.Status?
+
+    /// The relay in use.
+    var relayAddress: String { ownRelay.isEmpty ? Self.defaultRelay : ownRelay }
 
     // MARK: Keys and activity
 
@@ -90,7 +91,6 @@ final class BridgeController: ObservableObject {
     let changes = ChangeFeed()
     private let keyRing = KeyRing()
     private let sleepAssertion = KeepAwake()
-    private let bonjour = BonjourAdvertiser()
     private var serverTask: Task<Void, Never>?
     /// Tells a late "bound" callback from a server that has since stopped apart from the current one.
     private var serverGeneration = 0
@@ -108,58 +108,25 @@ final class BridgeController: ObservableObject {
         status == .denied || status == .restricted
     }
 
-    var host: String {
-        switch bindMode {
-        case .localhost: "127.0.0.1"
-        case .allInterfaces: "0.0.0.0"
-        case .custom: customHost.trimmingCharacters(in: .whitespaces)
-        }
-    }
-
-    /// The key the test command uses: the first that may write, as that one can try everything.
-    var testKey: StoredKey? {
-        keys.first { $0.access == .readWrite } ?? keys.first
-    }
-
-    func curlCommand(for key: StoredKey) -> String {
-        let target = bindMode == .allInterfaces ? "<mac-ip>" : host
-        let authority = target.contains(":") ? "[\(target)]" : target
-        return "curl -H \"Authorization: Bearer \(key.secret)\" \"http://\(authority):\(port)/api/events\""
-    }
-
-    /// A subscription URL for a calendar app. Only a Read key works in it: a URL ends up in logs and
-    /// sync settings, so the API refuses a key that can write there.
-    func feedURL(for key: StoredKey, calendar: CalendarDTO) -> String {
-        let target = bindMode == .allInterfaces ? "<mac-ip>" : host
-        let authority = target.contains(":") ? "[\(target)]" : target
-        let id = calendar.id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed.subtracting(["/"]))
-            ?? calendar.id
-        let secret = key.secret.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? key.secret
-        return "http://\(authority):\(port)/api/calendars/\(id)/events.ics?key=\(secret)"
-    }
-
-    /// Calendars a feed can be made for: shared, in Settings' order.
-    var sharedCalendars: [CalendarDTO] {
-        calendars.filter { exposedCalendars.contains($0.id) }
-    }
-
-    /// The Swagger UI page, opened on this Mac: a browser cannot connect to 0.0.0.0, so loopback stands in.
-    var docsURL: URL? {
-        let target = bindMode == .allInterfaces ? "127.0.0.1" : host
-        let authority = target.contains(":") ? "[\(target)]" : target
-        return URL(string: "http://\(authority):\(port)/docs")
-    }
+    /// Zubi's server answers on this Mac only; clients reach it through the relay. Zubi Dev takes
+    /// another port, so it runs beside an installed Zubi.
+    #if DEBUG
+    static let serverConfig = ServerConfig(host: "127.0.0.1", port: 8797)
+    #else
+    static let serverConfig = ServerConfig(host: "127.0.0.1", port: 8787)
+    #endif
 
     init() {
         let defaults = UserDefaults.standard
-        bindMode = BindMode(rawValue: defaults.string(forKey: SettingsKey.bindMode) ?? "") ?? .localhost
-        customHost = defaults.string(forKey: SettingsKey.customHost) ?? ""
-        port = defaults.object(forKey: SettingsKey.port) as? Int ?? 8787
         keepAwake = defaults.bool(forKey: SettingsKey.keepAwake)
-        relayEnabled = defaults.bool(forKey: SettingsKey.relayEnabled)
-        relayURL = defaults.string(forKey: SettingsKey.relayURL) ?? ""
+        ownRelay = defaults.string(forKey: SettingsKey.relayURL) ?? ""
         keyLastUsed = defaults.dictionary(forKey: SettingsKey.keyLastUsed) as? [String: Date] ?? [:]
         activity = ActivityLog.load()
+        // Zubi is set up once and then simply runs: it starts at login unless the user turns that off.
+        if !defaults.bool(forKey: SettingsKey.loginItemSet) {
+            defaults.set(true, forKey: SettingsKey.loginItemSet)
+            try? SMAppService.mainApp.register()
+        }
         launchAtLogin = SMAppService.mainApp.status == .enabled
         reloadKeys()
 
@@ -173,7 +140,6 @@ final class BridgeController: ObservableObject {
             forName: NSApplication.willTerminateNotification, object: nil, queue: .main
         ) { [weak self] _ in
             MainActor.assumeIsolated {
-                self?.bonjour.stop()
                 self?.sleepAssertion.hold(false, reason: "")
             }
         })
@@ -227,12 +193,8 @@ final class BridgeController: ObservableObject {
 
     func start() {
         guard serverTask == nil else { return }
-        guard !host.isEmpty else {
-            lastError = "Enter an IP address to bind to."
-            return
-        }
 
-        let config = ServerConfig(host: host, port: port)
+        let config = Self.serverConfig
         let keyRing = keyRing
         let server = BridgeServer(
             config: config, keys: { keyRing.keys },
@@ -260,18 +222,14 @@ final class BridgeController: ObservableObject {
 
         lastError = nil
         isRunning = true
-        append("Listening on \(config.host):\(config.port)")
+        append("Server started")
 
         serverGeneration += 1
         let generation = serverGeneration
-        let advertise = bindMode == .allInterfaces
         let onRunning: @Sendable () -> Void = { [weak self] in
             Task { @MainActor in
                 guard let self, self.serverGeneration == generation, self.serverTask != nil else { return }
                 self.startRelay(serving: config)
-                guard advertise else { return }
-                self.bonjour.start(port: config.port)
-                self.isAdvertising = self.bonjour.isAdvertising
             }
         }
         serverTask = Task {
@@ -282,8 +240,6 @@ final class BridgeController: ObservableObject {
             } catch {
                 self.lastError = Self.describe(error, port: config.port)
             }
-            self.bonjour.stop()
-            self.isAdvertising = false
             self.stopRelay()
             self.servingConfig = nil
             self.isRunning = false
@@ -296,10 +252,8 @@ final class BridgeController: ObservableObject {
     private static func describe(_ error: Error, port: Int) -> String {
         let detail = String(describing: error)
         if detail.contains("Address already in use") {
-            return "Port \(port) is already in use. Quit the other app using it, or pick another port."
-        }
-        if detail.contains("Can't assign requested address") {
-            return "This Mac has no such IP address. Check the address under Network."
+            return "Port \(port) on this Mac is already in use, by another app or a second copy of Zubi. Quit it, "
+                + "then click Start."
         }
         return detail
     }
@@ -318,24 +272,14 @@ final class BridgeController: ObservableObject {
         }
     }
 
-    // MARK: Settings
-
-    func applyNetworkSettings() {
-        let defaults = UserDefaults.standard
-        defaults.set(bindMode.rawValue, forKey: SettingsKey.bindMode)
-        defaults.set(customHost, forKey: SettingsKey.customHost)
-        defaults.set(port, forKey: SettingsKey.port)
-        restart()
-    }
-
     // MARK: Relay
 
-    /// Saves the relay settings and reconnects, while the server runs.
+    /// Saves the relay setting and reconnects, while the server runs. Pairing codes name the
+    /// relay, so clients paired through another one need a new code.
     func applyRelaySettings() {
-        relayURL = relayURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        let defaults = UserDefaults.standard
-        defaults.set(relayEnabled, forKey: SettingsKey.relayEnabled)
-        defaults.set(relayURL, forKey: SettingsKey.relayURL)
+        ownRelay = ownRelay.trimmingCharacters(in: .whitespacesAndNewlines)
+        if ownRelay == Self.defaultRelay { ownRelay = "" }
+        UserDefaults.standard.set(ownRelay, forKey: SettingsKey.relayURL)
         stopRelay()
         if let config = servingConfig { startRelay(serving: config) }
     }
@@ -345,17 +289,16 @@ final class BridgeController: ObservableObject {
 
     private func startRelay(serving config: ServerConfig) {
         servingConfig = config
-        guard relayEnabled, relayHost == nil else { return }
-        let url = URL(string: relayURL)
+        guard relayHost == nil else { return }
+        let url = URL(string: relayAddress)
         guard let url, RelayHost.isValidRelay(url) else {
-            relayStatus = .failed("Enter the relay's address, starting with wss://.")
+            relayStatus = .failed("Your own relay's address must start with wss://.")
             return
         }
         relayGeneration += 1
         let generation = relayGeneration
         let keyRing = keyRing
-        // A server on all interfaces is reached on loopback; one on a specific address only there.
-        let target = config.host == "0.0.0.0" ? "127.0.0.1" : config.host
+        let target = config.host
         do {
             let host = try RelayHost(
                 relay: url, roomKey: KeyStore.roomKey(), keys: { keyRing.keys },
@@ -381,11 +324,18 @@ final class BridgeController: ObservableObject {
         relayStatus = nil
     }
 
-    /// The code a device pastes into `zubi pair` to use `key` through the relay; nil while there
-    /// is no relay connection.
+    /// The code a client pastes into `zubi` to use `key` through the relay; nil until the relay
+    /// connection is set up.
     func pairingCode(for key: StoredKey) -> String? {
         relayHost?.pairingCode(for: key.apiKey)
     }
+
+    /// The first client's code, which Zubi shows from the start.
+    var defaultPairingCode: String? {
+        keys.first.flatMap(pairingCode(for:))
+    }
+
+    var relayConnected: Bool { relayStatus == .connected }
 
     private func updateKeepAwake() {
         sleepAssertion.hold(keepAwake && isRunning, reason: "\(Bundle.main.appDisplayName) is serving its API")
@@ -398,6 +348,11 @@ final class BridgeController: ObservableObject {
     func reloadKeys() {
         do {
             keys = try KeyStore.load()
+            // Every client may write where Settings allows it; keys from before have that too.
+            if keys.contains(where: { $0.access != .readWrite }) {
+                keys = keys.map { var key = $0; key.access = .readWrite; return key }
+                try KeyStore.save(keys)
+            }
             keyError = nil
         } catch {
             keys = []
@@ -408,14 +363,10 @@ final class BridgeController: ObservableObject {
 
     /// The new key, with its secret, or nil when the Keychain refused it.
     @discardableResult
-    func addKey(name: String, access: KeyAccess) -> StoredKey? {
-        let key = StoredKey(id: UUID().uuidString, name: Self.keyName(name), access: access, created: Date(),
+    func addKey(name: String) -> StoredKey? {
+        let key = StoredKey(id: UUID().uuidString, name: Self.keyName(name), access: .readWrite, created: Date(),
                             secret: KeyStore.generateSecret())
         return commit(keys + [key]) ? key : nil
-    }
-
-    func setAccess(_ access: KeyAccess, of id: String) {
-        update(id) { $0.access = access }
     }
 
     func renameKey(_ id: String, to name: String) {
