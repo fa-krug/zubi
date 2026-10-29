@@ -18,6 +18,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const systemdDir = "/etc/systemd/system"
@@ -108,12 +109,26 @@ func runService(command string, raw, positional []string, o options, stdout, std
 			return exitError
 		}
 	}
-	fmt.Fprintf(stdout, "Installed the %s service: it runs `zubi %s` as %s, starts at boot and restarts\n"+
-		"after a failure. If the same command still runs in a terminal, stop it there (Ctrl-C).\n"+
-		"  journalctl -u %s -f              its log, as it runs\n"+
-		"  systemctl status %s              whether it runs\n"+
-		"  zubi %s --uninstall-service    stop and remove it\n",
-		name, strings.TrimSpace(command+" "+strings.Join(args, " ")), user, name, name, command)
+	// Restarted just now: give it a moment, then say whether it stayed up.
+	time.Sleep(2 * time.Second)
+	running := exec.Command(systemctl, "is-active", "--quiet", name).Run() == nil
+	help := [][2]string{
+		{"systemctl status " + name, "whether it runs"},
+		{"journalctl -u " + name + " -f", "its log, as it runs"},
+		{"zubi " + command + " --uninstall-service", "stop and remove it"},
+	}
+	line := strings.TrimSpace("zubi " + command + " " + strings.Join(args, " "))
+	if running {
+		fmt.Fprintf(stdout, "✓ %s is running, as %s.\n  %s\n  Starts at boot, and restarts after a failure.\n\n", name, user, line)
+	} else {
+		fmt.Fprintf(stdout, "✗ %s is installed, but it isn't running.\n  %s\n  Its log says why: journalctl -u %s\n\n", name, line, name)
+	}
+	for _, h := range help {
+		fmt.Fprintf(stdout, "  %-34s %s\n", h[0], h[1])
+	}
+	if !running {
+		return exitError
+	}
 	return exitOK
 }
 

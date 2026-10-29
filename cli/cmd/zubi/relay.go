@@ -62,7 +62,7 @@ func runRelay(args []string, o options, stdout, stderr io.Writer) int {
 			logger.Printf("serving on %s for a proxy that terminates TLS; the relay's address is the proxy's wss:// URL", ln.Addr())
 			fmt.Fprintf(stdout, "Next:\n"+
 				"  1. Point the proxy's public hostname at http://%s (in a Cloudflare Tunnel: a public\n"+
-				"     hostname whose service is HTTP, URL %s).\n"+
+				"     hostname whose service is HTTP, URL %s; not localhost, which can be another program).\n"+
 				"  2. Check it: https://<that hostname>/health answers ok.\n"+
 				"  3. On the Mac: Zubi › Settings › Server › Relay, enter wss://<that hostname>, click Apply.\n"+
 				"  4. Pair each device with a code from Zubi › Settings › Keys: zubi pair -\n"+

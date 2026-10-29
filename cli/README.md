@@ -44,7 +44,7 @@ write, so you can take it back without touching the others.
 ### Install script (Linux, Raspberry Pi, macOS)
 
 ```sh
-curl -fsSL https://fa-krug.github.io/zubi/install.sh | sh
+curl -fsSL https://zubi.fa-krug.de/install.sh | sh
 ```
 
 The quickest way on a Raspberry Pi, and the only one-line install for 32-bit Raspberry Pi OS. It
@@ -57,11 +57,11 @@ so when `zubi` is already current.
 - `ZUBI_INSTALL_DIR=$HOME/.local/bin` installs there, without `sudo`.
 
 ```sh
-curl -fsSL https://fa-krug.github.io/zubi/install.sh | ZUBI_INSTALL_DIR=$HOME/.local/bin sh
+curl -fsSL https://zubi.fa-krug.de/install.sh | ZUBI_INSTALL_DIR=$HOME/.local/bin sh
 ```
 
 It needs `curl` or `wget`, and `tar`. To read it before running it, download it first:
-`curl -fsSLO https://fa-krug.github.io/zubi/install.sh`, then `sh install.sh`. The Raspberry Pi Zero
+`curl -fsSLO https://zubi.fa-krug.de/install.sh`, then `sh install.sh`. The Raspberry Pi Zero
 and Pi 1 (ARMv6) have no build.
 
 ### Homebrew (macOS and Linux)
@@ -464,8 +464,9 @@ running on the machine.
    ```
 
 2. In the Cloudflare dashboard, open your tunnel and add a **Public Hostname**, such as
-   `relay.example.com`, with service type **HTTP** and URL `127.0.0.1:8080`. In a `cloudflared`
-   config file, that is:
+   `relay.example.com`, with service type **HTTP** and URL `127.0.0.1:8080`. Write `127.0.0.1`, not
+   `localhost`: on the Pi, `localhost` can mean the IPv6 address `::1`, where another program may
+   answer. In a `cloudflared` config file, that is:
 
    ```yaml
    ingress:
@@ -479,6 +480,11 @@ running on the machine.
    ```sh
    curl https://relay.example.com/health    # answers: ok
    ```
+
+   `404 page not found` means the tunnel reaches some other program: on the machine running
+   `cloudflared`, `curl http://127.0.0.1:8080/` answers `Zubi relay. …` when the relay listens there,
+   and `sudo ss -ltnp | grep 8080` shows what listens on that port. A Cloudflare error page (502, 530)
+   means nothing answers behind the tunnel at all.
 
 The relay's address is `wss://relay.example.com`. Cloudflare passes WebSockets on and tells the
 relay the connection arrived over TLS, which `--behind-tls-proxy` insists on. A quick tunnel

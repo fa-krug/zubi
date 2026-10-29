@@ -250,3 +250,23 @@ func TestPairingCodeMatchesTheApp(t *testing.T) {
 		t.Errorf("the app's code: %+v, %v", got, err)
 	}
 }
+
+// TestNotARelay: an address that answers but isn't a relay, as when a tunnel points at the wrong
+// port, says so rather than blaming the Mac.
+func TestNotARelay(t *testing.T) {
+	for status, want := range map[int]string{
+		404: "isn't a Zubi relay",
+		502: "nothing answering behind it",
+		530: "nothing answering behind it",
+	} {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, http.StatusText(status), status)
+		}))
+		p := Pairing{Relay: "ws" + strings.TrimPrefix(srv.URL, "http"), Room: strings.Repeat("A", 43), KeyID: "k", Secret: "s"}
+		_, err := Dial(context.Background(), p, nil)
+		srv.Close()
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("%d: got %v, want %q", status, err, want)
+		}
+	}
+}

@@ -20,7 +20,7 @@ One document per feature, covering its invariants and internals. Every one of th
 [updates](features/updates.md) · [relay](features/relay.md)
 
 The user-facing documentation, including the HTTP API, lives on the website,
-<https://fa-krug.github.io/zubi/>, built from [`site/`](../site); its API reference is generated from
+<https://zubi.fa-krug.de/>, built from [`site/`](../site); its API reference is generated from
 the contract. The [README](../README.md) is the end-user front door. The contract is
 [`Packages/ZubiAPI/Sources/ZubiAPI/Resources/openapi.json`](../Packages/ZubiAPI/Sources/ZubiAPI/Resources/openapi.json),
 which the package's tests hold the server to; see [development.md](development.md#the-api-package).

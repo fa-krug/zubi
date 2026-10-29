@@ -19,7 +19,7 @@ Apple keeps this data on your Mac and in iCloud, with nothing a non-Apple device
 where the data already is and hands out exactly what you allow, item by item. There is no account and no Zubi
 server: your data goes from your Mac straight to your own devices.
 
-**Documentation: <https://fa-krug.github.io/zubi/>**
+**Documentation: <https://zubi.fa-krug.de/>**
 
 ## What you can do with it
 
@@ -83,7 +83,7 @@ from another device, either:
   enter the Mac's Tailscale address, and click **Apply and Restart**.
 
 The Mac has to be awake, logged in and running Zubi to answer.
-[Reaching Zubi from other devices](https://fa-krug.github.io/zubi/docs.html#network) covers every
+[Reaching Zubi from other devices](https://zubi.fa-krug.de/docs.html#network) covers every
 option.
 
 ## The `zubi` command
@@ -104,7 +104,7 @@ zubi reminders --due overdue --json
 On Linux, a Raspberry Pi or a Mac, install it with one line:
 
 ```bash
-curl -fsSL https://fa-krug.github.io/zubi/install.sh | sh
+curl -fsSL https://zubi.fa-krug.de/install.sh | sh
 ```
 
 Or with Homebrew on macOS and Linux, or Scoop on Windows:
@@ -135,13 +135,13 @@ Or download it from the [CLI releases](https://github.com/fa-krug/zubi/releases?
 - No analytics, no tracking. The only outside service Zubi contacts is GitHub, once a day, to check for
   updates; you can switch that off.
 
-The [privacy policy](https://fa-krug.github.io/zubi/privacy.html) lists every connection Zubi makes.
+The [privacy policy](https://zubi.fa-krug.de/privacy.html) lists every connection Zubi makes.
 
 ## Documentation
 
-- [Documentation](https://fa-krug.github.io/zubi/docs.html): the app, every setting, what each source
+- [Documentation](https://zubi.fa-krug.de/docs.html): the app, every setting, what each source
   returns, other devices, updates and troubleshooting.
-- [API reference](https://fa-krug.github.io/zubi/api.html): every endpoint, parameter and field. On your
+- [API reference](https://zubi.fa-krug.de/api.html): every endpoint, parameter and field. On your
   Mac, **Open API Docs** in **Settings › Keys** opens the same API in a page where you can try each call.
 - [Command-line client](cli/README.md): install, configure, commands, and use from agents.
 
