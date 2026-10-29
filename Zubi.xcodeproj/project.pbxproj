@@ -23,7 +23,6 @@
 		689D2E33EE0C4B8AAFEBCE27 /* ReleaseArchitecture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3251A20100E0F193FA2AB37C /* ReleaseArchitecture.swift */; };
 		74350EA6CC2C90BA79573DE7 /* SettingsComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECE21A5B0B5D7B22896F3D8F /* SettingsComponents.swift */; };
 		746BDC5E7514571E4B5B4870 /* UpdateCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E86D672D332E4D930A7CCB7 /* UpdateCoordinator.swift */; };
-		75BAB1A9F5945B2E281DB301 /* Bonjour.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44C5E40B1FB258CC43E9CD73 /* Bonjour.swift */; };
 		7C01E60BFC4C7D55FD7BC9D9 /* MenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62F4DCDB96209482B1F84833 /* MenuView.swift */; };
 		7D6182AE30AE2FB2DF77086A /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C0C8607EAEC7B86CB31D42D /* Theme.swift */; };
 		81A0F2EDC0F8349B5EA49645 /* UpdateDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 300B3EB9DC65590889AC44C4 /* UpdateDownloader.swift */; };
@@ -69,7 +68,6 @@
 		3513D6D7E95C0CAB59AAA010 /* zubi.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = zubi.icon; sourceTree = "<group>"; };
 		3A15DDF99A2FFBFABE970094 /* JXARunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JXARunner.swift; sourceTree = "<group>"; };
 		3DC440FC2551146816B77680 /* AboutPane.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutPane.swift; sourceTree = "<group>"; };
-		44C5E40B1FB258CC43E9CD73 /* Bonjour.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Bonjour.swift; sourceTree = "<group>"; };
 		461C01F082420C5641C9D0B8 /* Zubi.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Zubi.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		492204B01CDB41486B18DD3E /* RelaunchRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelaunchRunner.swift; sourceTree = "<group>"; };
 		5461C7468C457777B9988E67 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -177,7 +175,6 @@
 			children = (
 				B35E7191F1D571B009AA9E98 /* ActivityLog.swift */,
 				800180FFE5F5F936A87D7716 /* AppPaths.swift */,
-				44C5E40B1FB258CC43E9CD73 /* Bonjour.swift */,
 				571C46733BBF09601A3C929F /* BridgeController.swift */,
 				5C78518821E14D9784F30700 /* KeepAwake.swift */,
 				9D139EF9C2724854BAF6A13A /* KeyStore.swift */,
@@ -353,7 +350,6 @@
 				022160C2B8425FF6288EB3DE /* ActivityPane.swift in Sources */,
 				134025CCB2879F0934005798 /* AppPaths.swift in Sources */,
 				988E187F400E418ADCC36F53 /* AppVersion.swift in Sources */,
-				75BAB1A9F5945B2E281DB301 /* Bonjour.swift in Sources */,
 				F923420AF58AC58E58EC9966 /* BridgeController.swift in Sources */,
 				245EC035A3EEC487AF60BEE7 /* BundleSignature.swift in Sources */,
 				BB4A7A50255336123974EB7C /* CalendarService.swift in Sources */,

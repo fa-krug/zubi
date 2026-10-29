@@ -112,8 +112,8 @@ public struct BridgeServer: Sendable {
         return router
     }
 
-    /// Runs until cancelled. `onRunning` is called once the port is bound, so anything that
-    /// announces the server (Bonjour) never points at one that failed to start.
+    /// Runs until cancelled. `onRunning` is called once the port is bound, so the relay never
+    /// offers sessions into a server that failed to start.
     public func run(onRunning: @escaping @Sendable () -> Void = {}) async throws {
         let app = Application(
             router: makeRouter(),

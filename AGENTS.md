@@ -15,7 +15,7 @@ test suites hold the server and the client to.
 | Folder | Holds |
 | --- | --- |
 | `Sources/Settings/` | The Settings window: a sidebar of `SettingsTab`s (General, Connection, Clients, Activity, Reminders, Calendars, Notes, About; Connection is `ServerPane`, Clients `KeysPane`) and one `Form` pane each under `Panes/` |
-| `Sources/App/` | `@main` (`ZubiApp`), `BridgeController` (owns the server, access state and settings), the menu bar popover, `KeyStore` (the clients' keys, one Keychain item), `ActivityLog`, `KeepAwake`, `AppPaths` (`Bonjour.swift` is unused and due for removal) |
+| `Sources/App/` | `@main` (`ZubiApp`), `BridgeController` (owns the server, access state and settings), the menu bar popover, `KeyStore` (the clients' keys, one Keychain item), `ActivityLog`, `KeepAwake`, `AppPaths` |
 | `Sources/EventKit/` | `RemindersService` and `CalendarService`, actors over their own `EKEventStore`, conforming to the package's source protocols |
 | `Sources/Notes/` | `NotesService` and `JXARunner`: Notes read through `osascript` JavaScript for Automation |
 | `Packages/ZubiAPI/` | everything HTTP, as a local Swift package: the server, routes, bearer-key middleware, DTOs, the source protocols, `openapi.json`, the Mac's side of the relay (`Relay/`: Noise, pairing codes, `RelayHost`), and the tests (`swift test`) |
