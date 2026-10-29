@@ -64,8 +64,9 @@ func runRelay(args []string, o options, stdout, stderr io.Writer) int {
 				"  1. Point the proxy's public hostname at http://%s (in a Cloudflare Tunnel: a public\n"+
 				"     hostname whose service is HTTP, URL %s; not localhost, which can be another program).\n"+
 				"  2. Check it: https://<that hostname>/health answers ok.\n"+
-				"  3. On the Mac: Zubi › Settings › Server › Relay, enter wss://<that hostname>, click Apply.\n"+
-				"  4. Pair each device with a code from Zubi › Settings › Keys: zubi pair -\n"+
+				"  3. On the Mac: Zubi › Settings › Connection, turn on Use my own relay, enter\n"+
+				"     wss://<that hostname> and click Apply.\n"+
+				"  4. Pair each device again, with its code from Zubi › Settings › Clients: zubi pair -\n"+
 				"To keep the relay running after you log out, run this command again with --install-service.\n",
 				localAddr(ln.Addr()), localAddr(ln.Addr()))
 		}
@@ -100,8 +101,8 @@ func runRelay(args []string, o options, stdout, stderr io.Writer) int {
 		}
 		go certs.Run(ctx)
 		fmt.Fprintf(stdout, "Relay ready: %s\n", certs.URL())
-		fmt.Fprintf(stdout, "Next: enter it under Zubi › Settings › Server › Relay on the Mac and click Apply, then pair\n"+
-			"each device with a code from Zubi › Settings › Keys (zubi pair -). To keep the relay running\n"+
+		fmt.Fprintf(stdout, "Next: on the Mac, under Zubi › Settings › Connection, turn on Use my own relay, enter it and\n"+
+			"click Apply; then pair each device again with its code from Settings › Clients (zubi pair -).\nTo keep the relay running "+
 			"after you log out, run this command again with --install-service.\n")
 	}
 

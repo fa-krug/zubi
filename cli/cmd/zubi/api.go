@@ -245,7 +245,8 @@ func (e *APIError) Error() string {
 	}
 	switch {
 	case e.Status == http.StatusUnauthorized:
-		return "the API key was refused (401): check ZUBI_API_KEY or `zubi config set key`"
+		return "your Mac refused (401) this computer's key: it was deleted or regenerated. Pair again with a " +
+			"new code from Zubi › Settings › Clients: `zubi pair -`"
 	case e.Status == http.StatusForbidden && e.Write:
 		return msg + ". A change needs a Read & Write key (`zubi key` shows yours) and the list, calendar or " +
 			"folder set to Read & Write in Zubi's Settings on that Mac (`zubi lists`, `zubi calendars` and " +
@@ -285,7 +286,7 @@ func NewClient(ep endpoint, apiKey string, timeout time.Duration) *Client {
 		HTTP: &http.Client{Timeout: timeout}}
 	if ep.Relay != nil {
 		c.BaseURL = relayHost
-		c.HTTP.Transport = &http.Transport{DialContext: relayDialer(*ep.Relay, timeout), IdleConnTimeout: time.Minute}
+		c.HTTP.Transport = &http.Transport{DialContext: relayDialer(ep, timeout), IdleConnTimeout: time.Minute}
 	}
 	return c
 }
@@ -305,15 +306,23 @@ func NewStreamClient(ep endpoint, apiKey string, timeout time.Duration) *Client 
 	if ep.Relay != nil {
 		c.BaseURL = relayHost
 		transport.Proxy = nil
-		transport.DialContext = relayDialer(*ep.Relay, timeout)
+		transport.DialContext = relayDialer(ep, timeout)
 	}
 	return c
 }
 
-// relayDialer opens each connection as a session through the relay. timeout bounds the
-// handshake; zero means none.
-func relayDialer(p tunnel.Pairing, timeout time.Duration) func(context.Context, string, string) (net.Conn, error) {
+// relayDialer opens each connection through the client service's socket when the service runs,
+// and otherwise as a session through the relay itself. timeout bounds the handshake; zero means
+// none.
+func relayDialer(ep endpoint, timeout time.Duration) func(context.Context, string, string) (net.Conn, error) {
+	p := *ep.Relay
 	return func(ctx context.Context, _, _ string) (net.Conn, error) {
+		if ep.Socket != "" {
+			d := net.Dialer{Timeout: 200 * time.Millisecond}
+			if conn, err := d.DialContext(ctx, "unix", ep.Socket); err == nil {
+				return conn, nil
+			}
+		}
 		if timeout > 0 {
 			var cancel context.CancelFunc
 			ctx, cancel = context.WithTimeout(ctx, timeout)

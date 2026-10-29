@@ -1,6 +1,6 @@
 package main
 
-// --install-service and --uninstall-service on `zubi relay` and `zubi tunnel`: the command, with
+// --install-service and --uninstall-service on `zubi relay` and `zubi serve`: the command, with
 // the flags it was given, as a systemd service that starts at boot, restarts after a failure and
 // outlives the terminal it was set up from. Linux with systemd only; the service runs as the user
 // who set it up (through sudo), so it reads their pairing and keeps the relay's certificate in
@@ -69,7 +69,7 @@ func runService(command string, raw, positional []string, o options, stdout, std
 		return exitOK
 	}
 
-	name := "zubi-" + command
+	name := serviceName(command)
 	path := filepath.Join(systemdDir, name+".service")
 	systemd := func(args ...string) error {
 		out, err := exec.Command(systemctl, args...).CombinedOutput()
@@ -115,7 +115,7 @@ func runService(command string, raw, positional []string, o options, stdout, std
 	help := [][2]string{
 		{"systemctl status " + name, "whether it runs"},
 		{"journalctl -u " + name + " -f", "its log, as it runs"},
-		{"zubi " + command + " --uninstall-service", "stop and remove it"},
+		{removeHint(command), "stop and remove it"},
 	}
 	line := strings.TrimSpace("zubi " + command + " " + strings.Join(args, " "))
 	if running {
@@ -132,15 +132,30 @@ func runService(command string, raw, positional []string, o options, stdout, std
 	return exitOK
 }
 
+// serviceName is the unit's name: zubi-relay, or zubi-client for `zubi serve`.
+func serviceName(command string) string {
+	if command == "serve" {
+		return "zubi-client"
+	}
+	return "zubi-" + command
+}
+
+func removeHint(command string) string {
+	if command == "serve" {
+		return "zubi unpair"
+	}
+	return "zubi " + command + " --uninstall-service"
+}
+
 // checkServiceCommand refuses, before anything is installed, a command that couldn't start.
 func checkServiceCommand(command string, positional []string, o options) error {
 	switch command {
 	case "relay":
 		_, _, err := relaySettings(positional, o)
 		return err
-	case "tunnel":
+	case "serve":
 		if len(positional) > 0 {
-			return usageError(fmt.Sprintf("unexpected argument %q; it takes only --listen", positional[0]))
+			return usageError(fmt.Sprintf("unexpected argument %q; it takes none", positional[0]))
 		}
 		// Under sudo this run reads root's config, not the user's; the run before sudo checked theirs.
 		if os.Geteuid() == 0 && os.Getenv("SUDO_USER") != "" {
@@ -173,8 +188,8 @@ func withoutServiceFlags(args []string) []string {
 // serviceUnit is the systemd unit running `zubi command args` as user.
 func serviceUnit(command, exe, user string, args []string, o options) string {
 	description := "Zubi relay"
-	if command == "tunnel" {
-		description = "Zubi tunnel: Zubi's API through the relay, on this machine"
+	if command == "serve" {
+		description = "Zubi client: the connection to the Mac, through the relay"
 	}
 	line := []string{systemdQuote(exe), command}
 	for _, arg := range args {

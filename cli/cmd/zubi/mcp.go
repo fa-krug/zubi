@@ -439,7 +439,7 @@ type mcpServer struct {
 }
 
 func runMCP(g globals, stdin io.Reader, stdout, stderr io.Writer) int {
-	ep, key, err := resolve(g.url, g.key)
+	ep, key, _, err := resolve(g.url, g.key)
 	if err != nil {
 		fmt.Fprintln(stderr, "zubi mcp:", err)
 		return exitError
@@ -448,7 +448,7 @@ func runMCP(g globals, stdin io.Reader, stdout, stderr io.Writer) int {
 	// stdout carries the protocol alone; what people read goes to stderr, the client's log.
 	fmt.Fprintf(stderr, "zubi mcp %s: serving Zubi at %s over stdio\n", version, ep)
 	if key == "" {
-		fmt.Fprintln(stderr, "zubi mcp: "+noKey+" Until then every tool answers with an error.")
+		fmt.Fprintln(stderr, "zubi mcp: "+notPaired+". Until then every tool answers with an error.")
 	}
 	reader := bufio.NewReader(stdin)
 	code := exitOK
@@ -623,8 +623,8 @@ func (s *mcpServer) call(ctx context.Context, tool mcpTool, rawArgs json.RawMess
 		return textResult(err.Error(), true)
 	}
 	if s.client.APIKey == "" && !cmd.Public {
-		return textResult("Zubi needs an API key, and this MCP server has none. The user should create one in Zubi › "+
-			"Settings › Keys on the Mac and give it to this server as ZUBI_API_KEY in the MCP client's configuration.", true)
+		return textResult("This computer isn't paired with the user's Mac yet. The user should run `zubi` in a terminal "+
+			"here and paste a pairing code from Zubi › Settings › Clients on the Mac.", true)
 	}
 	body, err := s.client.Raw(ctx, cmd, req)
 	if err != nil {
@@ -646,7 +646,7 @@ func mcpErrorText(err error, baseURL string) string {
 		text := fmt.Sprintf("Zubi answered %d: %s.", apiErr.Status, strings.TrimSuffix(msg, "."))
 		switch {
 		case apiErr.Status == http.StatusUnauthorized:
-			text += " The API key was refused. The user should give this MCP server a current key from Zubi › Settings › Keys (ZUBI_API_KEY)."
+			text += " The Mac refused this computer's key. The user should pair it again: `zubi pair` with a new code from Zubi › Settings › Clients."
 		case apiErr.Status == http.StatusForbidden && apiErr.Write:
 			text += " Changing it needs a key with readWrite access (get_key) and the list, calendar or folder set to Read & Write " +
 				"in Zubi's Settings on the Mac (writable in the list tools). Retrying won't help; tell the user."

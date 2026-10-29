@@ -36,9 +36,12 @@ func TestServiceUnit(t *testing.T) {
 	if root := serviceUnit("relay", "/usr/local/bin/zubi", "root", nil, options{}); strings.Contains(root, "AmbientCapabilities") {
 		t.Errorf("root needs no capability:\n%s", root)
 	}
-	if tunnel := serviceUnit("tunnel", "/usr/local/bin/zubi", "pi", nil, options{}); !strings.Contains(tunnel, "ExecStart=/usr/local/bin/zubi tunnel\n") ||
-		strings.Contains(tunnel, "AmbientCapabilities") {
-		t.Errorf("tunnel:\n%s", tunnel)
+	if client := serviceUnit("serve", "/usr/local/bin/zubi", "pi", nil, options{}); !strings.Contains(client, "ExecStart=/usr/local/bin/zubi serve\n") ||
+		strings.Contains(client, "AmbientCapabilities") || !strings.Contains(client, "Description=Zubi client") {
+		t.Errorf("client:\n%s", client)
+	}
+	if serviceName("serve") != "zubi-client" || serviceName("relay") != "zubi-relay" {
+		t.Errorf("names: %s, %s", serviceName("serve"), serviceName("relay"))
 	}
 }
 
@@ -69,14 +72,14 @@ func TestServiceRefusals(t *testing.T) {
 	for _, args := range [][]string{
 		{"relay", "--install-service", "--uninstall-service"},
 		{"relay", "--install-service", "--no-tls", "--behind-tls-proxy"}, // a relay that couldn't start
-		{"tunnel", "--install-service"},                                  // not paired
+		{"serve", "--install-service"},                                   // not paired
 	} {
 		code, out, errOut := runZubi(t, "", args...)
 		if code != exitUsage || out != "" {
 			t.Errorf("%v: exit %d, stdout %q, stderr %q; want a usage error", args, code, out, errOut)
 		}
 	}
-	if _, _, errOut := runZubi(t, "", "tunnel", "--install-service"); !strings.Contains(errOut, "zubi pair") {
+	if _, _, errOut := runZubi(t, "", "serve", "--install-service"); !strings.Contains(errOut, "zubi pair") {
 		t.Errorf("tunnel without a pairing: %q", errOut)
 	}
 }

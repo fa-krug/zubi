@@ -104,7 +104,7 @@ func PSK(secret string) []byte {
 type RefusedError struct{}
 
 func (RefusedError) Error() string {
-	return "Zubi refused the key; it was deleted or regenerated. Pair again with a new code from Settings › Keys"
+	return "Zubi refused the key; it was deleted or regenerated. Pair again with a new code from Zubi › Settings › Clients: `zubi pair -`"
 }
 
 // UnavailableError is any other failure to reach the Mac: the relay, or the Mac on it.
@@ -139,7 +139,7 @@ func handshakeProblem(hs *websocket.HandshakeError) error {
 	switch {
 	case hs.Status == 404 && strings.Contains(hs.Message, "no Zubi is connected"):
 		return errors.New("the Mac isn't connected to the relay: check that Zubi runs there with the relay on " +
-			"(Settings › Server › Relay says Connected), and that the Mac is awake")
+			"(Settings › Connection says Connected), and that the Mac is awake")
 	case hs.Status == 403 && strings.Contains(hs.Message, "only takes wss"):
 		return errors.New("the relay refused the connection as not arriving over HTTPS: its proxy must pass the " +
 			"X-Forwarded-Proto header on")

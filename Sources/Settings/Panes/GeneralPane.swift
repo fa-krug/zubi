@@ -12,7 +12,7 @@ struct GeneralPane: View {
                     set: { controller.setLaunchAtLogin($0) }
                 )) {
                     Text("Launch at login")
-                    Text("Zubi has to be running, in a logged-in session, for the API to answer.")
+                    Text("Zubi has to be running, in a logged-in session, for your clients to reach this Mac.")
                 }
             }
 

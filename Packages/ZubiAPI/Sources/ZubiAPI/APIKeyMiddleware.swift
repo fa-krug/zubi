@@ -6,7 +6,7 @@ public enum KeyAccess: String, Codable, Sendable, CaseIterable {
     case readWrite
 }
 
-/// One device's key, as Settings › Keys holds it.
+/// One client's key, as Settings › Clients holds it.
 public struct APIKey: Sendable, Equatable {
     /// Stable across renames and regenerated secrets, for the app's own bookkeeping.
     public let id: String
@@ -29,9 +29,6 @@ struct APIKeyMiddleware: RouterMiddleware {
 
     /// Read per request, so a key added, changed or deleted in Settings needs no restart.
     let keys: @Sendable () -> [APIKey]
-    /// Only the calendar feed: calendar apps subscribe to a URL and cannot send a header. Only a
-    /// read-only key counts there, since a URL ends up in proxy logs and sync settings.
-    let acceptsQueryKey: Bool
     let onRequest: @Sendable (String) -> Void
     let onKeyUsed: @Sendable (String) -> Void
 
@@ -40,7 +37,7 @@ struct APIKeyMiddleware: RouterMiddleware {
         context: Context,
         next: (Request, Context) async throws -> Response
     ) async throws -> Response {
-        // The path only: a query key must never reach the log.
+        // The path only, as a query may carry anything.
         let line = "\(request.method) \(request.uri.path)"
 
         guard let key = resolve(request) else {
@@ -67,30 +64,17 @@ struct APIKeyMiddleware: RouterMiddleware {
         }
     }
 
-    /// The bearer header if there is one, else (feed only) `?key=`. Every key is compared, so the
-    /// time taken says nothing about which one, or how much of it, matched.
+    /// The key in the bearer header. Every key is compared, so the time taken says nothing about
+    /// which one, or how much of it, matched.
     private func resolve(_ request: Request) -> APIKey? {
-        let provided: String
-        let fromQuery: Bool
-        if let header = request.headers[.authorization] {
-            guard header.hasPrefix("Bearer ") else { return nil }
-            provided = String(header.dropFirst("Bearer ".count))
-            fromQuery = false
-        } else if acceptsQueryKey, let key = request.query.get("key") {
-            provided = key
-            fromQuery = true
-        } else {
-            return nil
-        }
+        guard let header = request.headers[.authorization], header.hasPrefix("Bearer ") else { return nil }
+        let provided = String(header.dropFirst("Bearer ".count))
         guard !provided.isEmpty else { return nil }
 
         var match: APIKey?
         for key in keys() where !key.secret.isEmpty {
             if constantTimeEquals(provided, key.secret) && match == nil { match = key }
         }
-        // A key that can write is no credential in a URL: refused as if wrong, so a leaked feed URL
-        // never carries one that works for anything else.
-        if fromQuery, match?.access != .read { return nil }
         return match
     }
 

@@ -12,21 +12,18 @@ import (
 	"github.com/fa-krug/zubi/cli/internal/tunnel"
 )
 
-const defaultURL = "http://127.0.0.1:8787"
-
-// Config is what `zubi config set` and `zubi pair` store. Flags and environment variables
-// override it per run.
+// Config is what pairing stores: the relay, the Mac's room on it and the key, from the pairing
+// code. The key is the secret, so the file is readable by its owner only.
 type Config struct {
-	URL    string `json:"url,omitempty"`
-	APIKey string `json:"apiKey,omitempty"`
-	// Relay is set by `zubi pair`: Zubi is reached through a relay rather than at URL.
 	Relay *tunnel.Pairing `json:"relay,omitempty"`
 }
 
-// endpoint is where Zubi is: an address, or a Mac on a relay.
+// endpoint is where Zubi is: the Mac on a relay, through the client service's socket when that
+// runs. URL is only for the tests, which talk to a fake Zubi directly (--url or ZUBI_URL).
 type endpoint struct {
-	URL   string
-	Relay *tunnel.Pairing
+	URL    string
+	Relay  *tunnel.Pairing
+	Socket string
 }
 
 // String names the endpoint for people.
@@ -52,6 +49,15 @@ func configPath() (string, error) {
 		return "", err
 	}
 	return filepath.Join(dir, "zubi", "config.json"), nil
+}
+
+// socketPath is where the client service listens, next to the config, so only its owner reaches it.
+func socketPath() (string, error) {
+	config, err := configPath()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(filepath.Dir(config), "zubi.sock"), nil
 }
 
 func loadConfig() (Config, string, error) {
@@ -89,20 +95,22 @@ func saveConfig(path string, cfg Config) error {
 	return os.Rename(tmp, path)
 }
 
-// resolve applies precedence: flag, then environment, then config file, then the default. A URL
-// from a flag or the environment wins over a pairing; otherwise a pairing means the relay, and
-// its key is the default key.
-func resolve(flagURL, flagKey string) (ep endpoint, key string, err error) {
+// resolve finds Zubi: the pairing, through the client service's socket when it runs, with the
+// pairing's key. --url and ZUBI_URL (with --key or ZUBI_API_KEY) reach a Zubi directly instead,
+// which only the tests do. paired is false when there is neither.
+func resolve(flagURL, flagKey string) (ep endpoint, key string, paired bool, err error) {
 	cfg, _, err := loadConfig()
 	if err != nil {
-		return endpoint{}, "", err
+		return endpoint{}, "", false, err
 	}
-	if override := first(flagURL, os.Getenv("ZUBI_URL")); override == "" && cfg.Relay != nil {
-		ep = endpoint{Relay: cfg.Relay}
-		return ep, first(flagKey, os.Getenv("ZUBI_API_KEY"), cfg.APIKey, cfg.Relay.Secret), nil
+	if override := first(flagURL, os.Getenv("ZUBI_URL")); override != "" {
+		return endpoint{URL: override}, first(flagKey, os.Getenv("ZUBI_API_KEY")), true, nil
 	}
-	ep = endpoint{URL: first(flagURL, os.Getenv("ZUBI_URL"), cfg.URL, defaultURL)}
-	return ep, first(flagKey, os.Getenv("ZUBI_API_KEY"), cfg.APIKey), nil
+	if cfg.Relay == nil {
+		return endpoint{}, "", false, nil
+	}
+	socket, _ := socketPath()
+	return endpoint{Relay: cfg.Relay, Socket: socket}, first(flagKey, os.Getenv("ZUBI_API_KEY"), cfg.Relay.Secret), true, nil
 }
 
 func first(values ...string) string {
@@ -112,15 +120,4 @@ func first(values ...string) string {
 		}
 	}
 	return ""
-}
-
-// masked shows enough of a key to tell two apart, never enough to use it.
-func masked(key string) string {
-	if key == "" {
-		return "(not set)"
-	}
-	if len(key) <= 8 {
-		return "********"
-	}
-	return key[:4] + strings.Repeat("*", 8) + key[len(key)-4:]
 }

@@ -4,7 +4,6 @@ import Hummingbird
 enum CalendarRoutes {
     static func register(
         on api: RouterGroup<ZubiRequestContext>,
-        feed: RouterGroup<ZubiRequestContext>,
         service: any CalendarSource,
         isAuthorized: @escaping @Sendable () -> Bool,
         exposedIDs: @escaping @Sendable () -> Set<String>,
@@ -23,26 +22,6 @@ enum CalendarRoutes {
                 return calendar
             }
             return CalendarsResponse(calendars: calendars)
-        }
-
-        // GET /api/calendars/{id}/events.ics?from=YYYY-MM-DD&to=YYYY-MM-DD
-        // Defaults to 30 days back and a year ahead. The only route that takes `?key=`.
-        feed.get("calendars/:id/events.ics") { request, context -> Response in
-            try requireAccess(isAuthorized)
-            let calendar = try await exposedCalendar(try pathID(context), service, exposedIDs())
-            let query = request.query
-            let today = Calendar.current.startOfDay(for: now())
-            let range = try dayRange(
-                from: query.get("from"), to: query.get("to"),
-                defaultFrom: Calendar.current.date(byAdding: .day, value: -30, to: today)!,
-                defaultTo: Calendar.current.date(byAdding: .year, value: 1, to: today)!,
-                maxDays: 2 * 366, limit: "two years")
-            let events = await service.events(in: [calendar.id], from: range.from, to: range.to)
-            let body = ICalendar.document(name: calendar.title, events: events, stamp: now())
-            return Response(
-                status: .ok,
-                headers: [.contentType: "text/calendar; charset=utf-8"],
-                body: ResponseBody(byteBuffer: ByteBuffer(string: body)))
         }
 
         // GET /api/events?from=YYYY-MM-DD&to=YYYY-MM-DD&calendar=<id or title>&q=<text>

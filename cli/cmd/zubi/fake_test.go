@@ -364,3 +364,13 @@ func prettyFixture(t *testing.T, name string) string {
 	}
 	return buf.String() + "\n"
 }
+
+// readConfigIfAny is the config file as the CLI reads it; empty when there is none.
+func readConfigIfAny(t *testing.T) Config {
+	t.Helper()
+	cfg, _, err := loadConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return cfg
+}

@@ -3,7 +3,6 @@
 package main
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -11,8 +10,8 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"net/url"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -32,9 +31,12 @@ const (
 	exitUnreachable  = 5
 )
 
-const usage = `zubi — read and change the Reminders, calendars and Notes a Mac running Zubi shares.
+const usage = `zubi — your Mac's Reminders, calendars and Notes, from anywhere, through Zubi.
 
 Usage:
+  zubi                        The connection's status. The first time, it asks for a pairing
+                              code from Zubi › Settings › Clients on your Mac, and sets up the
+                              zubi-client service that keeps the connection
   zubi <command> [flags]
 
 Read:
@@ -51,8 +53,7 @@ Read:
                               [--folder NAME|ID] [--limit N] [-q|--search TEXT]
   note ID                     One note's text                 [--html]
 
-Change (only where Zubi's Settings say Read & Write, with a Read & Write key;
-nothing is ever deleted):
+Change (only where Zubi's Settings on the Mac say Read & Write; nothing is ever deleted):
   reminders add TITLE         --list NAME|ID [--due WHEN] [--notes TEXT] [--priority P]
   reminders edit ID           [--title TEXT] [--list NAME|ID] [--due WHEN | --clear-due]
                               [--notes TEXT | --clear-notes] [--priority P] [--done | --undone]
@@ -67,38 +68,26 @@ nothing is ever deleted):
   note edit ID                [--title TEXT] [--text TEXT | --html HTML]
 
 Connect:
+  pair CODE                   Pair with a Mac, or again with a new code (another key, your own
+                              relay); "-" reads the code from stdin
+  unpair                      Forget the pairing, and remove the zubi-client service
   watch                       Print a line whenever something changes, until Ctrl-C
                               [--exec COMMAND]  run COMMAND after each change (no shell)
-  feed CALENDAR               The calendar's subscription URL for calendar apps; it holds
-                              the key, so use a read-only one
-                              [--from YYYY-MM-DD] [--to YYYY-MM-DD] [--download]
-  mcp                         Serve the API to AI assistants over stdio (Model Context Protocol)
-  pair CODE                   Reach Zubi through a relay from now on, with a pairing code from
-                              Zubi › Settings › Keys ("-" reads it from stdin); end-to-end
-                              encrypted, and checked before it is saved
-  tunnel                      Serve Zubi through the relay at a local address, for other
-                              programs on this computer   [--listen ADDR] (default 127.0.0.1:8787)
-                              [--install-service]  keep it running as a systemd service (Linux)
-                              [--uninstall-service]
+  mcp                         Serve Zubi to AI assistants over stdio (Model Context Protocol)
 
-Relay (where a Mac and its clients meet when they are on different networks):
+Your own relay (Zubi uses relay.fa-krug.de unless you set your own on the Mac):
   relay                       Run a relay: wss:// on port 443 with a Let's Encrypt certificate
                               for this network's public IP address, renewed automatically
                               [--listen ADDR] [--ip IP | --domain NAME] [--state DIR]
                               [--acme-directory URL]  another ACME CA, such as a staging one
-                              [--behind-tls-proxy]  plain HTTP on $PORT, for a platform that
-                                                    serves wss:// itself
+                              [--behind-tls-proxy]  plain HTTP on $PORT, for a platform or
+                                                    tunnel that serves wss:// itself
                               [--no-tls]  plain ws://; only on a network you trust
                               [--install-service]  keep it running, with these flags, as a
                                                    systemd service (Linux; asks for sudo)
                               [--uninstall-service]
 
 Other:
-  health                      Check that Zubi answers, and which key you use
-  key                         The key's name and access (read, or read & write)
-  config                      Show settings; "config set url URL", "config set key KEY|-",
-                              "config unset relay"
-  config discover             Find Zubi on this network     [--save] [--pick N]
   version                     Print the version
 
 Values:
@@ -111,26 +100,21 @@ Values:
   An edit changes only what you pass; --clear-... empties a field.
 
 Flags for every command:
-  --json            Print the API's JSON instead of text (use this from scripts and agents)
-  --url URL         Zubi's address               (env ZUBI_URL, default ` + defaultURL + `)
-  --key KEY         API key from Zubi › Settings › Keys (env ZUBI_API_KEY)
+  --json            Print Zubi's JSON instead of text (use this from scripts)
   --timeout DUR     Give up after this long      (default 20s; Notes can be slow)
   --no-color        Plain text, no colour        (also NO_COLOR)
 
-Exit codes: 0 ok, 1 error (including read-only, 403, and locked note, 409), 2 bad usage,
-3 key refused, 4 not found or hidden, 5 Zubi unreachable.
+Exit codes: 0 ok, 1 error (including read-only, 403, and locked note, 409), 2 bad usage or
+not paired, 3 key refused, 4 not found or hidden, 5 the Mac unreachable.
 
 Examples:
-  zubi config discover --save    # or: zubi config set url http://mac.local:8787
-  zubi pair -                    # paste a pairing code: reach Zubi through a relay
-  zubi config set key -          # reads the key from stdin, so it stays out of shell history
+  zubi                           # status; the first time, pairing
   zubi events --from 2026-11-02 --to 2026-11-06
   zubi reminders -q milk
   zubi reminders add "Buy milk" --list Groceries --due 2026-11-02 --priority high
   zubi reminders done "$(zubi reminders --json | jq -r '.reminders[0].id')"
   zubi notes add "Minutes" --folder Work --text - < minutes.txt
   zubi watch --exec "./refresh-dashboard.sh"
-  zubi relay --listen :8443      # with the router forwarding port 443 to this machine's 8443
 `
 
 // globals are the flags every command accepts, wherever they appear on the line.
@@ -148,10 +132,8 @@ type options struct {
 	list, due, calendar, folder, from, to, search string
 	completed, html, ids                          bool
 	limit                                         int
-	// Connecting and configuring.
-	exec           string
-	download, save bool
-	pick           int
+	// Watching.
+	exec string
 	// Running a relay or a tunnel.
 	listen, ip, domain, stateDir, acmeDirectory string
 	noTLS, behindProxy                          bool
@@ -248,15 +230,7 @@ func defineFlags(fs *flag.FlagSet, command string, o *options) {
 		str(&o.htmlBody, "html")
 	case "watch":
 		str(&o.exec, "exec")
-	case "feed":
-		str(&o.from, "from")
-		str(&o.to, "to")
-		boolean(&o.download, "download")
-	case "config":
-		boolean(&o.save, "save")
-		fs.IntVar(&o.pick, "pick", 0, "")
-	case "tunnel":
-		str(&o.listen, "listen")
+	case "serve":
 		boolean(&o.installService, "install-service")
 		boolean(&o.uninstallService, "uninstall-service")
 	case "relay":
@@ -366,8 +340,7 @@ func main() {
 
 func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
-		fmt.Fprint(stdout, usage)
-		return exitOK
+		return runStatus(stdin, stdout, stderr)
 	}
 	if args[0] == "--version" || args[0] == "-version" {
 		fmt.Fprintln(stdout, "zubi "+version)
@@ -396,7 +369,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	o := options{set: map[string]bool{}}
 	fs := newFlagSet(command, &g)
 	cmd, isAPI := lookup(command)
-	if !isAPI && command != "config" && command != "mcp" && command != "relay" && command != "pair" && command != "tunnel" {
+	if isAPI && cmd.Internal || !isAPI && !slices.Contains(localCommands, command) && !slices.Contains(hiddenCommands, command) {
 		fmt.Fprintf(stderr, "zubi: unknown command %q; run `zubi help`\n", command)
 		return exitUsage
 	}
@@ -412,30 +385,27 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	}
 	fs.Visit(func(f *flag.Flag) { o.set[f.Name] = true })
 	switch command {
-	case "config":
-		return runConfig(positional, g, o, stdin, stdout, stderr)
 	case "mcp":
 		if len(positional) > 0 {
 			fmt.Fprintf(stderr, "zubi mcp: unexpected argument %q; it takes no arguments\n", positional[0])
 			return exitUsage
 		}
 		return runMCP(g, stdin, stdout, stderr)
-	case "relay", "tunnel":
+	case "relay", "serve":
 		if o.installService || o.uninstallService {
 			return runService(command, rest, positional, o, stdout, stderr)
 		}
 		if command == "relay" {
 			return runRelay(positional, o, stdout, stderr)
 		}
-		return runTunnel(positional, o, stdout, stderr)
+		return runServe(positional, stdout, stderr)
 	case "pair":
 		return runPair(positional, g, stdin, stdout, stderr)
+	case "unpair":
+		return runUnpair(positional, stdout, stderr)
 	}
 
 	req, err := buildRequest(command, o, positional, stdin)
-	if err == nil && command == "feed" && o.download && g.json {
-		err = usageError("--download prints the iCalendar file; leave out --json")
-	}
 	if err != nil {
 		fmt.Fprintf(stderr, "zubi %s: %v\n", command, err)
 		var usageErr usageError
@@ -445,30 +415,20 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		return exitError
 	}
 
-	ep, key, err := resolve(g.url, g.key)
+	ep, key, paired, err := resolve(g.url, g.key)
 	if err != nil {
 		fmt.Fprintln(stderr, "zubi:", err)
 		return exitError
 	}
-	if key == "" && !cmd.Public {
-		fmt.Fprintln(stderr, "zubi: "+noKey)
-		return exitUsage
-	}
-	if command == "feed" && !o.download && ep.Relay != nil {
-		fmt.Fprintln(stderr, "zubi feed: a calendar app can't subscribe through the relay. Run `zubi tunnel` on the "+
-			"computer the calendar app runs on and pass --url http://127.0.0.1:8787, or use --download")
+	if !paired || key == "" {
+		fmt.Fprintln(stderr, "zubi: "+notPaired)
 		return exitUsage
 	}
 	client := NewClient(ep, key, g.timeout)
 	ctx := context.Background()
 
-	switch command {
-	case "watch":
+	if command == "watch" {
 		return runWatch(NewStreamClient(ep, key, g.timeout), cmd, o, g, stdout, stderr)
-	case "feed":
-		return runFeed(ctx, client, cmd, req, o, g, stdout, stderr)
-	case "health":
-		return runHealth(ctx, client, cmd, g, stdout, stderr)
 	}
 
 	if g.json {
@@ -510,8 +470,6 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		printFolders(stdout, style, res.Folders)
 	case *NoteSummariesResponse:
 		printNotes(stdout, style, res.Notes)
-	case *KeyInfo:
-		fmt.Fprintf(stdout, "%s  %s\n", res.Name, describeAccess(res.Access))
 	// A created or edited item is shown as its listing shows it, with its ID to follow up with.
 	case *Reminder:
 		printReminders(stdout, style, []Reminder{*res}, true)
@@ -533,8 +491,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	return exitOK
 }
 
-const noKey = "no API key. Create one in Zubi › Settings › Keys, then run " +
-	"`zubi config set key -` or set ZUBI_API_KEY."
+const notPaired = "not paired with a Mac yet: run `zubi` to pair, with a code from Zubi › Settings › Clients"
 
 // printJSON prints a response body as --json promises: the server's JSON, indented.
 func printJSON(w io.Writer, body []byte) {
@@ -544,34 +501,6 @@ func printJSON(w io.Writer, body []byte) {
 		pretty.Write(bytes.TrimSpace(body))
 	}
 	fmt.Fprintln(w, pretty.String())
-}
-
-// runHealth checks that Zubi answers, which needs no key. With a key configured, it also says
-// whose key it is, without letting a refused key fail the check.
-func runHealth(ctx context.Context, client *Client, cmd apiCommand, g globals, stdout, stderr io.Writer) int {
-	body, err := client.Raw(ctx, cmd, request{})
-	if err != nil {
-		return fail(stderr, err)
-	}
-	if g.json {
-		fmt.Fprintln(stdout, strings.TrimSpace(string(body)))
-		return exitOK
-	}
-	fmt.Fprintf(stdout, "%s at %s\n", strings.TrimSpace(string(body)), client.Where)
-	if client.APIKey == "" {
-		return exitOK
-	}
-	keyCmd, _ := lookup("key")
-	res, err := client.Do(ctx, keyCmd, request{})
-	var apiErr *APIError
-	switch {
-	case err == nil:
-		info := res.(*KeyInfo)
-		fmt.Fprintf(stdout, "key %s, %s\n", info.Name, describeAccess(info.Access))
-	case errors.As(err, &apiErr) && apiErr.Status == 401:
-		fmt.Fprintln(stdout, "key refused (401): check ZUBI_API_KEY or `zubi config set key`")
-	}
-	return exitOK
 }
 
 // describeAccess puts a key's access in words.
@@ -602,71 +531,4 @@ func fail(stderr io.Writer, err error) int {
 		return exitUnreachable
 	}
 	return exitError
-}
-
-func runConfig(args []string, g globals, o options, stdin io.Reader, stdout, stderr io.Writer) int {
-	cfg, path, err := loadConfig()
-	if err != nil {
-		fmt.Fprintln(stderr, "zubi:", err)
-		return exitError
-	}
-	if len(args) == 1 && args[0] == "discover" {
-		return runDiscover(cfg, path, g, o, stdout, stderr)
-	}
-	if o.set["save"] || o.set["pick"] {
-		fmt.Fprintln(stderr, "zubi config: --save and --pick go with `config discover`")
-		return exitUsage
-	}
-	if len(args) == 0 || (len(args) == 1 && args[0] == "show") {
-		ep, key, _ := resolve(g.url, g.key)
-		if ep.Relay != nil {
-			fmt.Fprintf(stdout, "file  %s\nrelay %s\nroom  %s\nkey   %s\n", path, ep.Relay.Relay, ep.Relay.Room, masked(key))
-			return exitOK
-		}
-		fmt.Fprintf(stdout, "file  %s\nurl   %s\nkey   %s\n", path, ep.URL, masked(key))
-		return exitOK
-	}
-	switch {
-	case len(args) == 3 && args[0] == "set" && args[1] == "url":
-		u, err := url.Parse(args[2])
-		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-			fmt.Fprintln(stderr, "zubi config: the URL needs a scheme and host, like http://mac.local:8787")
-			return exitUsage
-		}
-		cfg.URL = strings.TrimRight(args[2], "/")
-		cfg.Relay = nil // an address replaces a relay
-	case len(args) == 3 && args[0] == "set" && args[1] == "key":
-		key := args[2]
-		if key == "-" {
-			line, err := bufio.NewReader(stdin).ReadString('\n')
-			if err != nil && !errors.Is(err, io.EOF) {
-				fmt.Fprintln(stderr, "zubi config:", err)
-				return exitError
-			}
-			key = strings.TrimSpace(line)
-		}
-		if key == "" {
-			fmt.Fprintln(stderr, "zubi config: the key is empty")
-			return exitUsage
-		}
-		cfg.APIKey = key
-	case len(args) == 2 && args[0] == "unset" && (args[1] == "url" || args[1] == "key" || args[1] == "relay"):
-		switch args[1] {
-		case "url":
-			cfg.URL = ""
-		case "key":
-			cfg.APIKey = ""
-		case "relay":
-			cfg.Relay = nil
-		}
-	default:
-		fmt.Fprintln(stderr, "zubi config: use `config`, `config set url URL`, `config set key KEY|-`, `config unset url|key|relay` or `config discover`")
-		return exitUsage
-	}
-	if err := saveConfig(path, cfg); err != nil {
-		fmt.Fprintln(stderr, "zubi config:", err)
-		return exitError
-	}
-	fmt.Fprintln(stdout, "Saved to", path)
-	return exitOK
 }

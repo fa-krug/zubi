@@ -95,28 +95,21 @@ public struct BridgeServer: Sendable {
 
         // Unauthenticated liveness check
         router.get("health") { _, _ -> String in "ok" }
-        DocsRoutes.register(on: router)
 
-        let api = router.group("api").add(middleware: keyMiddleware(acceptsQueryKey: false))
-        // The same prefix, for the one route that also takes `?key=`.
-        let feed = router.group("api").add(middleware: keyMiddleware(acceptsQueryKey: true))
+        let api = router.group("api").add(middleware: APIKeyMiddleware(keys: keys, onRequest: onRequest,
+                                                                       onKeyUsed: onKeyUsed))
         let writes = WriteHooks(changes: changes, now: now, onWrite: onWrite)
 
         ServiceRoutes.register(on: api, changes: changes, heartbeat: heartbeat)
         ReminderRoutes.register(on: api, service: reminders, isAuthorized: access.reminders,
                                 exposedIDs: exposed.reminderLists, writableIDs: exposed.writableReminderLists,
                                 writes: writes)
-        CalendarRoutes.register(on: api, feed: feed, service: calendar, isAuthorized: access.calendar,
+        CalendarRoutes.register(on: api, service: calendar, isAuthorized: access.calendar,
                                 exposedIDs: exposed.calendars, writableIDs: exposed.writableCalendars,
                                 writes: writes, now: now)
         NotesRoutes.register(on: api, service: notes, exposedIDs: exposed.noteFolders,
                              writableIDs: exposed.writableNoteFolders, writes: writes)
         return router
-    }
-
-    private func keyMiddleware(acceptsQueryKey: Bool) -> APIKeyMiddleware {
-        APIKeyMiddleware(keys: keys, acceptsQueryKey: acceptsQueryKey, onRequest: onRequest,
-                         onKeyUsed: onKeyUsed)
     }
 
     /// Runs until cancelled. `onRunning` is called once the port is bound, so anything that

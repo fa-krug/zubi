@@ -76,33 +76,6 @@ func TestCommandsHuman(t *testing.T) {
 	}
 }
 
-func TestHealth(t *testing.T) {
-	isolate(t)
-	f := newFakeZubi(t)
-	// No key: health is public.
-	code, out, errOut := runZubi(t, "", "health", "--url", f.URL)
-	if code != exitOK || out != "ok at "+f.URL+"\n" {
-		t.Errorf("exit %d, stdout %q, stderr %q", code, out, errOut)
-	}
-	code, out, _ = runZubi(t, "", "health", "--json", "--url", f.URL)
-	if code != exitOK || out != "ok\n" {
-		t.Errorf("--json: exit %d, stdout %q", code, out)
-	}
-	// With a key, it says whose key it is; a refused key doesn't fail the check.
-	code, out, errOut = runZubi(t, "", f.args("health")...)
-	if code != exitOK || out != "ok at "+f.URL+"\nkey Laptop, read & write\n" {
-		t.Errorf("with a key: exit %d, stdout %q, stderr %q", code, out, errOut)
-	}
-	code, out, _ = runZubi(t, "", "health", "--url", f.URL, "--key", "wrong")
-	if code != exitOK || !strings.Contains(out, "key refused (401)") {
-		t.Errorf("with a wrong key: exit %d, stdout %q", code, out)
-	}
-	code, out, _ = runZubi(t, "", f.args("health", "--json")...)
-	if code != exitOK || out != "ok\n" {
-		t.Errorf("--json with a key: exit %d, stdout %q", code, out)
-	}
-}
-
 func TestEmptyResults(t *testing.T) {
 	isolate(t)
 	f := newFakeZubi(t)
@@ -131,7 +104,6 @@ func TestCommandsJSON(t *testing.T) {
 		"notes.json":       {"notes", "--folder", "Recipes", "--limit", "20"},
 		"note.json":        {"note", noteID},
 		"note_locked.json": {"note", lockedNoteID},
-		"key.json":         {"key"},
 	}
 	for fixture, args := range cases {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
@@ -162,7 +134,6 @@ func TestEveryQueryParameterSent(t *testing.T) {
 		{"events", "--from", "2026-11-02", "--to", "2026-11-06", "--calendar", "Work", "-q", "standup"},
 		{"notes", "--folder", "Recipes", "--limit", "500", "--search=pancake"},
 		{"note", noteID},
-		{"feed", "Work", "--from", "2026-10-01", "--to", "2026-12-31", "--download"},
 	}
 	for _, args := range runs {
 		if code, _, errOut := runZubi(t, "", f.args(args...)...); code != exitOK {
@@ -323,7 +294,7 @@ func TestExitCodes(t *testing.T) {
 			if code != exitUnauthorized {
 				t.Errorf("%v: exit %d, want %d", args, code, exitUnauthorized)
 			}
-			if out != "" || !strings.Contains(errOut, "refused (401)") || !strings.Contains(errOut, "zubi config set key") {
+			if out != "" || !strings.Contains(errOut, "refused (401)") || !strings.Contains(errOut, "zubi pair") {
 				t.Errorf("%v: stdout %q, stderr %q", args, out, errOut)
 			}
 		}
@@ -371,7 +342,7 @@ func TestExitCodes(t *testing.T) {
 		}
 		closed := "http://" + l.Addr().String()
 		l.Close()
-		for _, args := range [][]string{{"lists"}, {"lists", "--json"}, {"health"}} {
+		for _, args := range [][]string{{"lists"}, {"lists", "--json"}} {
 			code, out, errOut := runZubi(t, "", append(args, "--url", closed, "--key", testKey)...)
 			if code != exitUnreachable || out != "" || !strings.Contains(errOut, "no Zubi answered at "+closed) {
 				t.Errorf("%v: exit %d, stdout %q, stderr %q", args, code, out, errOut)
@@ -379,11 +350,11 @@ func TestExitCodes(t *testing.T) {
 		}
 	})
 
-	t.Run("missing key", func(t *testing.T) {
+	t.Run("not paired", func(t *testing.T) {
 		isolate(t)
 		f := newFakeZubi(t)
 		code, _, errOut := runZubi(t, "", "lists", "--url", f.URL)
-		if code != exitUsage || !strings.Contains(errOut, "zubi config set key -") || !strings.Contains(errOut, "ZUBI_API_KEY") {
+		if code != exitUsage || !strings.Contains(errOut, "run `zubi` to pair") {
 			t.Errorf("exit %d, stderr %q", code, errOut)
 		}
 		if len(f.seen()) != 0 {
@@ -404,17 +375,16 @@ func TestExitCodes(t *testing.T) {
 		{"events", "--timeout", "soon"},
 		{"reminders", "frob"},
 		{"lists", "add", "x"},
-		{"key", "extra"},
+		{"key"},
+		{"health"},
+		{"unpair", "now"},
 		{"watch", "now"},
 		{"watch", "--exec", ""},
 		{"watch", "--exec", "'unclosed"},
-		{"feed"},
-		{"feed", "Work", "Home"},
-		{"feed", "Work", "--from", "tomorrow"},
-		{"feed", "Work", "--download", "--json"},
 		{"mcp", "serve"},
-		{"config", "--save"},
-		{"config", "set", "url", "http://x:1", "--pick", "2"},
+		{"config"},
+		{"feed", "Work"},
+		{"tunnel"},
 	}
 	for _, args := range usage {
 		t.Run("usage "+strings.Join(args, " "), func(t *testing.T) {
@@ -435,7 +405,7 @@ func must(t *testing.T, fixture string) []byte { return readFixture(t, fixture) 
 
 func TestHelpAndVersion(t *testing.T) {
 	isolate(t)
-	for _, args := range [][]string{nil, {"help"}, {"-h"}, {"--help"}, {"lists", "--help"}, {"reminders", "add", "--help"}, {"note", "edit", "-h"}, {"watch", "-h"}, {"mcp", "--help"}} {
+	for _, args := range [][]string{{"help"}, {"-h"}, {"--help"}, {"lists", "--help"}, {"reminders", "add", "--help"}, {"note", "edit", "-h"}, {"watch", "-h"}, {"mcp", "--help"}} {
 		code, out, _ := runZubi(t, "", args...)
 		if code != exitOK || out != usage {
 			t.Errorf("%v: exit %d, want the usage text", args, code)
@@ -504,8 +474,7 @@ func TestUsageListsEveryCommand(t *testing.T) {
 			t.Errorf("the usage text lists %q, which isn't a command", name)
 		}
 	}
-	// A command's flags: its own, except config's, which belong to config discover.
-	flagsOf := map[string]string{"config": "", "config discover": "config"}
+	flagsOf := map[string]string{}
 	for _, name := range known {
 		block := blocks[name]
 		defined, ok := flagsOf[name]

@@ -440,10 +440,10 @@ func TestMCPWithoutKey(t *testing.T) {
 		t.Errorf("initialize should work without a key: %v", byID["1"])
 	}
 	text, isError := toolText(t, byID["2"])
-	if !isError || !strings.Contains(text, "ZUBI_API_KEY") {
+	if !isError || !strings.Contains(text, "isn't paired") {
 		t.Errorf("isError %v, text %q", isError, text)
 	}
-	if !strings.Contains(stderr, "no API key") || len(f.seen()) != 0 {
+	if !strings.Contains(stderr, "not paired") || len(f.seen()) != 0 {
 		t.Errorf("stderr %q, sent %v", stderr, f.seen())
 	}
 }
@@ -453,7 +453,7 @@ func TestMCPErrorTexts(t *testing.T) {
 	f := newFakeZubi(t)
 	f.answer("/api/notes/folders", 503, string(must(t, "error_unavailable.json")))
 	byID, _, _ := mcpSession(t, []string{"--url", f.URL, "--key", "wrong"}, call(1, "get_key", `{}`))
-	if text, isError := toolText(t, byID["1"]); !isError || !strings.Contains(text, "401") || !strings.Contains(text, "Settings › Keys") {
+	if text, isError := toolText(t, byID["1"]); !isError || !strings.Contains(text, "401") || !strings.Contains(text, "Settings › Clients") {
 		t.Errorf("401: %v %q", isError, text)
 	}
 	byID, _, _ = mcpSession(t, f.args(),

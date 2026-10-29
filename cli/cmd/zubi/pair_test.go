@@ -5,9 +5,9 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"io"
-	"net/http"
 	"net/http/httptest"
-	"regexp"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -46,40 +46,50 @@ func relayedZubi(t *testing.T) (*fakeZubi, string) {
 	return f, p.String()
 }
 
+// noService keeps the tests away from systemd: no service can be set up, and none is installed.
+func noService(t *testing.T) {
+	t.Helper()
+	savedCan, savedPath := canHaveService, clientUnitPath
+	canHaveService = func() bool { return false }
+	clientUnitPath = filepath.Join(t.TempDir(), "zubi-client.service")
+	t.Cleanup(func() { canHaveService, clientUnitPath = savedCan, savedPath })
+}
+
 func TestPairThenUseTheRelay(t *testing.T) {
 	isolate(t)
+	noService(t)
 	f, code := relayedZubi(t)
 
 	exit, out, errOut := runZubi(t, code+"\n", "pair", "-")
-	if exit != exitOK || !strings.Contains(out, "Paired: Zubi answers through ws://") {
+	if exit != exitOK || !strings.Contains(out, `Paired with your Mac as "Laptop", through ws://`) {
 		t.Fatalf("pair: exit %d, stdout %q, stderr %q", exit, out, errOut)
 	}
 	// Every command now goes through the relay, with the pairing's key.
 	if exit, out, errOut := runZubi(t, "", "lists", "--json"); exit != exitOK || !strings.Contains(out, `"lists"`) {
 		t.Fatalf("lists through the relay: exit %d, %q, %q", exit, out, errOut)
 	}
-	if exit, out, _ := runZubi(t, "", "health"); exit != exitOK || !strings.Contains(out, "at the relay ws://") {
-		t.Errorf("health names the relay: %q", out)
-	}
-	if exit, out, _ := runZubi(t, "", "config"); exit != exitOK || !strings.Contains(out, "relay ws://") {
-		t.Errorf("config shows the relay: %q", out)
-	}
-	if exit, _, errOut := runZubi(t, "", "feed", "Work"); exit != exitUsage || !strings.Contains(errOut, "zubi tunnel") {
-		t.Errorf("feed through the relay: exit %d, %q", exit, errOut)
-	}
-	// A URL on the command line wins over the pairing.
-	if exit, _, _ := runZubi(t, "", "lists", "--url", "http://127.0.0.1:1"); exit != exitUnreachable {
-		t.Errorf("--url over the relay: exit %d", exit)
-	}
 	if !contains(f.seen(), "/api/lists") {
 		t.Errorf("the fake saw %v", f.seen())
 	}
-
-	if exit, _, _ := runZubi(t, "", "config", "unset", "relay"); exit != exitOK {
-		t.Fatal("unset relay")
+	// `zubi` on its own says so.
+	exit, out, _ = runZubi(t, "")
+	for _, want := range []string{`✓ Paired as "Pi", through ws://`, "· Commands connect each time", "✓ Your Mac answers"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("status lacks %q:\n%s", want, out)
+		}
 	}
-	if _, out, _ := runZubi(t, "", "config"); strings.Contains(out, "relay") {
-		t.Errorf("relay still set: %q", out)
+	if exit != exitOK {
+		t.Errorf("status: exit %d", exit)
+	}
+
+	if exit, out, _ := runZubi(t, "", "unpair"); exit != exitOK || !strings.Contains(out, "Unpaired") {
+		t.Fatalf("unpair: exit %d, %q", exit, out)
+	}
+	if cfg := readConfigIfAny(t); cfg.Relay != nil {
+		t.Errorf("still paired: %+v", cfg.Relay)
+	}
+	if exit, _, errOut := runZubi(t, "", "lists"); exit != exitUsage || !strings.Contains(errOut, "not paired") {
+		t.Errorf("lists after unpair: exit %d, %q", exit, errOut)
 	}
 }
 
@@ -94,12 +104,13 @@ func contains(list []string, s string) bool {
 
 func TestPairRefusals(t *testing.T) {
 	isolate(t)
+	noService(t)
 	_, code := relayedZubi(t)
 	p, _ := tunnel.ParsePairing(code, true)
 
 	wrong := p
 	wrong.Secret = "guessed"
-	if exit, _, errOut := runZubi(t, "", "pair", wrong.String()); exit != exitUnauthorized || !strings.Contains(errOut, "not saved") {
+	if exit, _, errOut := runZubi(t, "", "pair", wrong.String()); exit != exitUnauthorized || !strings.Contains(errOut, "not paired") {
 		t.Errorf("a wrong secret: exit %d, %q", exit, errOut)
 	}
 	_, other, _ := ed25519.GenerateKey(rand.Reader)
@@ -120,10 +131,48 @@ func TestPairRefusals(t *testing.T) {
 	}
 }
 
-func TestTunnel(t *testing.T) {
+// TestFirstRun: `zubi` on a computer that isn't paired asks for the code, pairs, sets up the
+// service, and shows the status.
+func TestFirstRun(t *testing.T) {
 	isolate(t)
+	noService(t)
+	canHaveService = func() bool { return true }
+	set := 0
+	saved := setupClientService
+	setupClientService = func(stdout, stderr io.Writer) int { set++; return exitOK }
+	t.Cleanup(func() { setupClientService = saved })
+	_, code := relayedZubi(t)
+
+	exit, out, errOut := runZubi(t, code+"\n")
+	for _, want := range []string{"isn't paired with a Mac yet", "Pairing code: ", `✓ Paired with your Mac as "Laptop"`,
+		"Setting up the zubi-client service", "✓ Your Mac answers"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("first run lacks %q:\n%s", want, out)
+		}
+	}
+	if exit != exitOK || set != 1 {
+		t.Errorf("exit %d, service set up %d times, stderr %q", exit, set, errOut)
+	}
+	if readConfigIfAny(t).Relay == nil {
+		t.Error("not saved")
+	}
+}
+
+func TestFirstRunWithoutACode(t *testing.T) {
+	isolate(t)
+	noService(t)
+	exit, out, errOut := runZubi(t, "")
+	if exit != exitUsage || !strings.Contains(out, "Pairing code:") || !strings.Contains(errOut, "no code given") {
+		t.Errorf("exit %d, stdout %q, stderr %q", exit, out, errOut)
+	}
+}
+
+// TestServe: the client service carries every command through its socket, and the status says so.
+func TestServe(t *testing.T) {
+	isolate(t)
+	noService(t)
 	f, code := relayedZubi(t)
-	if exit, _, errOut := runZubi(t, "", "pair", code); exit != exitOK {
+	if exit, _, errOut := runZubi(t, code+"\n", "pair", "-"); exit != exitOK {
 		t.Fatalf("pair: %q", errOut)
 	}
 
@@ -133,47 +182,34 @@ func TestTunnel(t *testing.T) {
 	t.Cleanup(func() { signalContext = saved })
 	out := &lockedBuffer{}
 	codes := make(chan int, 1)
-	go func() {
-		codes <- run([]string{"tunnel", "--listen", "127.0.0.1:0"}, strings.NewReader(""), out, io.Discard)
-	}()
-	serving := regexp.MustCompile(`Serving Zubi at (http://\S+),`)
-	var base string
-	for i := 0; base == ""; i++ {
-		if m := serving.FindStringSubmatch(out.String()); m != nil {
-			base = m[1]
-		} else if i == 200 {
-			t.Fatalf("the tunnel didn't start: %q", out.String())
+	go func() { codes <- run([]string{"serve"}, strings.NewReader(""), out, io.Discard) }()
+	socket, _ := socketPath()
+	for i := 0; !strings.Contains(out.String(), "Serving Zubi on "+socket); i++ {
+		if i == 200 {
+			t.Fatalf("serve didn't start: %q", out.String())
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
+	if info, err := os.Stat(socket); err != nil || info.Mode().Perm() != 0o600 {
+		t.Errorf("socket %v %v, want mode 0600", info, err)
+	}
 
-	// Any program can use it, with the key, as if Zubi were local.
-	req, _ := http.NewRequest("GET", base+"/api/lists", nil)
-	req.Header.Set("Authorization", "Bearer "+testKey)
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
+	before := len(f.seen())
+	if exit, out, errOut := runZubi(t, "", "lists", "--json"); exit != exitOK || !strings.Contains(out, `"lists"`) {
+		t.Fatalf("lists through the service: exit %d, %q, %q", exit, out, errOut)
 	}
-	res.Body.Close()
-	if res.StatusCode != 200 {
-		t.Fatalf("through the tunnel: %d", res.StatusCode)
+	if len(f.seen()) != before+1 {
+		t.Errorf("the fake saw %v", f.seen())
 	}
-	if exit, _, _ := runZubi(t, "", "lists", "--url", base, "--key", testKey); exit != exitOK {
-		t.Errorf("zubi --url through the tunnel: exit %d", exit)
-	}
-	if n := len(f.seen()); n < 2 {
-		t.Errorf("the fake saw %d requests", n)
+	if _, status, _ := runZubi(t, ""); !strings.Contains(status, "✓ The zubi-client service keeps the connection") {
+		t.Errorf("status:\n%s", status)
 	}
 	cancel()
 	if exit := <-codes; exit != exitOK {
 		t.Errorf("exit %d after Ctrl-C", exit)
 	}
-}
-
-func TestTunnelNeedsAPairing(t *testing.T) {
-	isolate(t)
-	if exit, _, errOut := runZubi(t, "", "tunnel"); exit != exitUsage || !strings.Contains(errOut, "zubi pair") {
-		t.Errorf("exit %d, %q", exit, errOut)
+	if _, err := os.Stat(socket); err == nil {
+		t.Error("the socket outlived the service")
 	}
 }
 
