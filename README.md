@@ -5,6 +5,9 @@
 <p align="center">
   <img alt="macOS 14 or later"
        src="https://img.shields.io/badge/macOS-14%2B-000000?style=flat&logo=apple&logoColor=white">
+  <a href="LICENSE">
+    <img alt="License: MIT"
+         src="https://img.shields.io/badge/License-MIT-3DA639?style=flat"></a>
 </p>
 
 A menu bar app for macOS 14+ that serves selected Reminders lists, calendars and Notes folders over a
@@ -107,3 +110,7 @@ Read **[CONTRIBUTING.md](CONTRIBUTING.md)** first. Every PR fills in the
 - Folder cache for Notes
 - Tags and subtasks: port the parsing from FradSer/event (MIT, keep its license notice)
 - Optional `/mcp` endpoint with the Swift MCP SDK
+
+## License
+
+[MIT](LICENSE)

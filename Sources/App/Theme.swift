@@ -19,5 +19,8 @@ enum Theme {
         static let textSecondary = Color.primary.opacity(0.6)
         static let sheen = Color.primary.opacity(0.04)
         static let cardFill = Color.primary.opacity(0.05)
+        static let cardStroke = Color.primary.opacity(0.10)
+        /// The app icon's teal.
+        static let brand = Color(red: 0.0, green: 0.62, blue: 0.56)
     }
 }

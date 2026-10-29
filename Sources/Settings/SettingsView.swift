@@ -49,6 +49,7 @@ struct SettingsView: View {
         case .reminders: RemindersPane()
         case .calendars: CalendarsPane()
         case .notes: NotesPane()
+        case .about: AboutPane()
         }
     }
 

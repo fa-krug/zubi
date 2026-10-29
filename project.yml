@@ -39,6 +39,9 @@ targets:
     platform: macOS
     sources:
       - path: Sources
+      # Apache-2.0 §4(d) and llhttp's MIT licence ask that the notices travel with the binary.
+      - path: NOTICE.md
+        buildPhase: resources
     dependencies:
       - package: Hummingbird
         product: Hummingbird

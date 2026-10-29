@@ -10,6 +10,7 @@
 		081FA5487A087A8CAB455482 /* CalendarsPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = D84AC6ABED1BC20A529DB293 /* CalendarsPane.swift */; };
 		0AD4604702EE381339CD9637 /* ServerPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAE73B73281D5BC2F400A19C /* ServerPane.swift */; };
 		134025CCB2879F0934005798 /* AppPaths.swift in Sources */ = {isa = PBXBuildFile; fileRef = 800180FFE5F5F936A87D7716 /* AppPaths.swift */; };
+		1A670A50DACCA85F5284D0D0 /* NOTICE.md in Resources */ = {isa = PBXBuildFile; fileRef = FA5228BC2EC51B77A10316C8 /* NOTICE.md */; };
 		1FA86DC65F567639188DE2E6 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C74303AF4CEF7EF83B0D9B17 /* SettingsView.swift */; };
 		21518F6BF67A5456C1B7F414 /* Hummingbird in Frameworks */ = {isa = PBXBuildFile; productRef = 8F5FE37E89D03FC216A9810C /* Hummingbird */; };
 		245EC035A3EEC487AF60BEE7 /* BundleSignature.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4ADB21BBE15EB3696CD4B9D /* BundleSignature.swift */; };
@@ -43,6 +44,7 @@
 		C5FAA8E5199C9A551D64AD39 /* UpdateWindowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 075A8F761BF7B92ED4B3E1EF /* UpdateWindowView.swift */; };
 		CBF9779F5897066D7163ED53 /* RemindersPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F58036AE100202AC26871A3 /* RemindersPane.swift */; };
 		D095079CF70116EFBAC9880D /* GeneralPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2A6E3F0FB9322E3F15C1120 /* GeneralPane.swift */; };
+		D19C1352752D248E8F48B042 /* AboutPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DC440FC2551146816B77680 /* AboutPane.swift */; };
 		D7A67D65393BBA86D0BA5D3D /* NotesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D9C6514A8CE262E27CCA453 /* NotesService.swift */; };
 		D81E7BE5E540A791E0EA9268 /* UpdateFailure.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAE9FCE60A992178AE8CB908 /* UpdateFailure.swift */; };
 		E143C60366B7FB859D6FB84F /* SettingsTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E76E1F8CC486CDBDDDD4EEE /* SettingsTab.swift */; };
@@ -70,6 +72,7 @@
 		3513D6D7E95C0CAB59AAA010 /* zubi.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = zubi.icon; sourceTree = "<group>"; };
 		3A15DDF99A2FFBFABE970094 /* JXARunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JXARunner.swift; sourceTree = "<group>"; };
 		3DB027C14B18870E88174C13 /* APIKeyStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIKeyStore.swift; sourceTree = "<group>"; };
+		3DC440FC2551146816B77680 /* AboutPane.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutPane.swift; sourceTree = "<group>"; };
 		461C01F082420C5641C9D0B8 /* Zubi.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Zubi.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		492204B01CDB41486B18DD3E /* RelaunchRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelaunchRunner.swift; sourceTree = "<group>"; };
 		493E9941CE15F8432BFDAA7B /* BridgeServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeServer.swift; sourceTree = "<group>"; };
@@ -101,6 +104,7 @@
 		ECE21A5B0B5D7B22896F3D8F /* SettingsComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsComponents.swift; sourceTree = "<group>"; };
 		F46101A650E4C1DD206370C6 /* DTOs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DTOs.swift; sourceTree = "<group>"; };
 		F9777031F6B77249420B68EA /* ReleaseNotes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReleaseNotes.swift; sourceTree = "<group>"; };
+		FA5228BC2EC51B77A10316C8 /* NOTICE.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = NOTICE.md; sourceTree = "<group>"; };
 		FB16C19832B0A62744503053 /* Quarantine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Quarantine.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -156,6 +160,7 @@
 		312B58307024CF584B407F6E /* Panes */ = {
 			isa = PBXGroup;
 			children = (
+				3DC440FC2551146816B77680 /* AboutPane.swift */,
 				ACAB99979C1D8290F4D2A0BF /* APIKeyPane.swift */,
 				D84AC6ABED1BC20A529DB293 /* CalendarsPane.swift */,
 				D2A6E3F0FB9322E3F15C1120 /* GeneralPane.swift */,
@@ -247,6 +252,7 @@
 			isa = PBXGroup;
 			children = (
 				49C224D040ACCE676AC4354E /* Sources */,
+				FA5228BC2EC51B77A10316C8 /* NOTICE.md */,
 				163D56E7CE6B9F6AC5EB08A0 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -339,6 +345,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				5CC6348C0A6CF0AB8A035F2E /* Assets.xcassets in Resources */,
+				1A670A50DACCA85F5284D0D0 /* NOTICE.md in Resources */,
 				EF787115828F34D3609DBDB2 /* zubi.icon in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -353,6 +360,7 @@
 				61D744DB1F3CF326224521F0 /* APIKeyMiddleware.swift in Sources */,
 				8A64DC8056572722AF0FFE3F /* APIKeyPane.swift in Sources */,
 				7EECF8BEF93D5E04663F9D3A /* APIKeyStore.swift in Sources */,
+				D19C1352752D248E8F48B042 /* AboutPane.swift in Sources */,
 				134025CCB2879F0934005798 /* AppPaths.swift in Sources */,
 				988E187F400E418ADCC36F53 /* AppVersion.swift in Sources */,
 				F923420AF58AC58E58EC9966 /* BridgeController.swift in Sources */,

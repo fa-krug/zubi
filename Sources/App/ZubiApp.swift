@@ -25,7 +25,7 @@ struct ZubiApp: App {
                 .environmentObject(controller)
                 .environment(updates)
         }
-        .defaultSize(width: 760, height: 560)
+        .defaultSize(width: 760, height: 660)
         .windowResizability(.contentMinSize)
     }
 }

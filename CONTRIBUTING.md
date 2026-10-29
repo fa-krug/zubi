@@ -60,3 +60,7 @@ steps, expected vs actual. For an API bug, the exact request and the response.
 ## Security
 
 Not in the issue tracker; see [`SECURITY.md`](SECURITY.md).
+
+## License
+
+[MIT](LICENSE). Contributions are licensed under the same terms.

@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum SettingsTab: CaseIterable, Identifiable {
-    case general, server, api, reminders, calendars, notes
+    case general, server, api, reminders, calendars, notes, about
     /// The case, never an index: a selectable `List` flattens section and row IDs together.
     var id: Self { self }
 
@@ -13,6 +13,7 @@ enum SettingsTab: CaseIterable, Identifiable {
         case .reminders: return "Reminders"
         case .calendars: return "Calendars"
         case .notes: return "Notes"
+        case .about: return "About"
         }
     }
 
@@ -24,6 +25,7 @@ enum SettingsTab: CaseIterable, Identifiable {
         case .reminders: return "checklist"
         case .calendars: return "calendar"
         case .notes: return "note.text"
+        case .about: return "info.circle"
         }
     }
 
@@ -36,6 +38,7 @@ enum SettingsTab: CaseIterable, Identifiable {
         case .reminders: return .orange
         case .calendars: return .red
         case .notes: return .yellow
+        case .about: return Theme.Colors.brand
         }
     }
 }
@@ -54,13 +57,15 @@ extension SettingsTab {
 
 /// Declaration order is display order; not `.Section`, which would shadow SwiftUI's `Section`.
 enum SettingsSection: CaseIterable, Identifiable {
-    case app, sources
+    case app, sources, about
     var id: Self { self }
 
     var title: String {
         switch self {
         case .app: return "Zubi"
         case .sources: return "Sources"
+        // Untitled: a header reading "About" over a row reading "About" says it twice.
+        case .about: return ""
         }
     }
 
@@ -68,6 +73,7 @@ enum SettingsSection: CaseIterable, Identifiable {
         switch self {
         case .app: return [.general, .server, .api]
         case .sources: return [.reminders, .calendars, .notes]
+        case .about: return [.about]
         }
     }
 }

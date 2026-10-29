@@ -9,7 +9,7 @@ for the HTTP server. Not sandboxed. The API is documented in [README.md](README.
 
 | Folder | Holds |
 | --- | --- |
-| `Sources/Settings/` | The Settings window: a sidebar of `SettingsTab`s (General, Server, API Key, Reminders, Calendars, Notes) and one `Form` pane each under `Panes/` |
+| `Sources/Settings/` | The Settings window: a sidebar of `SettingsTab`s (General, Server, API Key, Reminders, Calendars, Notes, About) and one `Form` pane each under `Panes/` |
 | `Sources/App/` | `@main` (`ZubiApp`), `BridgeController` (owns the server, access state and settings), the menu bar popover, the Keychain-backed API key, `AppPaths` |
 | `Sources/Server/` | the Hummingbird server, bearer-key middleware, and one routes file per source |
 | `Sources/EventKit/` | `RemindersService` and `CalendarService`, actors over their own `EKEventStore` |
@@ -72,6 +72,7 @@ Any doc your change makes wrong is fixed in the same commit:
 | `release.yml`, the version scheme, the secrets | [release.md](docs/release.md) |
 | entitlements, usage strings, signing identities, `BundleSignature` | [signing.md](docs/signing.md) |
 | anything under `Sources/Updates/` | [features/updates.md](docs/features/updates.md) |
+| a Swift package, or a Hummingbird bump | [NOTICE.md](NOTICE.md): check `LINKED` in `Scripts/gen-notice.py` against the build's `Zubi.LinkFileList`, then run `Scripts/gen-notice.py build/DerivedData/SourcePackages/checkouts` |
 
 ## Before you finish
 
