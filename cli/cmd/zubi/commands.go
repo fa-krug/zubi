@@ -68,7 +68,7 @@ var apiCommands = []apiCommand{
 
 // localCommands are the documented commands that send no request of their own through
 // apiCommands. ("help" prints the usage text.) mcp's tools send requests from apiCommands.
-var localCommands = []string{"mcp", "config", "config discover", "version"}
+var localCommands = []string{"mcp", "relay", "config", "config discover", "version"}
 
 func lookup(name string) (apiCommand, bool) {
 	for _, c := range apiCommands {

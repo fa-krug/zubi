@@ -72,6 +72,15 @@ Connect:
                               [--from YYYY-MM-DD] [--to YYYY-MM-DD] [--download]
   mcp                         Serve the API to AI assistants over stdio (Model Context Protocol)
 
+Relay (where a Mac and its clients meet when they are on different networks):
+  relay                       Run a relay: wss:// on port 443 with a Let's Encrypt certificate
+                              for this network's public IP address, renewed automatically
+                              [--listen ADDR] [--ip IP | --domain NAME] [--state DIR]
+                              [--acme-directory URL]  another ACME CA, such as a staging one
+                              [--behind-tls-proxy]  plain HTTP on $PORT, for a platform that
+                                                    serves wss:// itself
+                              [--no-tls]  plain ws://; only on a network you trust
+
 Other:
   health                      Check that Zubi answers, and which key you use
   key                         The key's name and access (read, or read & write)
@@ -107,6 +116,7 @@ Examples:
   zubi reminders done "$(zubi reminders --json | jq -r '.reminders[0].id')"
   zubi notes add "Minutes" --folder Work --text - < minutes.txt
   zubi watch --exec "./refresh-dashboard.sh"
+  zubi relay --listen :8443      # with the router forwarding port 443 to this machine's 8443
 `
 
 // globals are the flags every command accepts, wherever they appear on the line.
@@ -128,6 +138,9 @@ type options struct {
 	exec           string
 	download, save bool
 	pick           int
+	// Running a relay.
+	listen, ip, domain, stateDir, acmeDirectory string
+	noTLS, behindProxy                          bool
 	// Writing.
 	title, notes, priority, start, end, location, link, occurrence, text, htmlBody string
 	allDay, timed, done, undone, clearDue, clearNotes, clearLocation, clearLink    bool
@@ -227,6 +240,14 @@ func defineFlags(fs *flag.FlagSet, command string, o *options) {
 	case "config":
 		boolean(&o.save, "save")
 		fs.IntVar(&o.pick, "pick", 0, "")
+	case "relay":
+		str(&o.listen, "listen")
+		str(&o.ip, "ip")
+		str(&o.domain, "domain")
+		str(&o.stateDir, "state")
+		str(&o.acmeDirectory, "acme-directory")
+		boolean(&o.noTLS, "no-tls")
+		boolean(&o.behindProxy, "behind-tls-proxy")
 	}
 }
 
@@ -354,7 +375,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	o := options{set: map[string]bool{}}
 	fs := newFlagSet(command, &g)
 	cmd, isAPI := lookup(command)
-	if !isAPI && command != "config" && command != "mcp" {
+	if !isAPI && command != "config" && command != "mcp" && command != "relay" {
 		fmt.Fprintf(stderr, "zubi: unknown command %q; run `zubi help`\n", command)
 		return exitUsage
 	}
@@ -378,6 +399,8 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			return exitUsage
 		}
 		return runMCP(g, stdin, stdout, stderr)
+	case "relay":
+		return runRelay(positional, o, stdout, stderr)
 	}
 
 	req, err := buildRequest(command, o, positional, stdin)

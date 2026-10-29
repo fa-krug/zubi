@@ -29,6 +29,7 @@
         <li><a href="#cli-commands">Commands</a></li>
         <li><a href="#agents">For agents and scripts</a></li>
         <li><a href="#mcp">Claude Desktop and MCP</a></li>
+        <li><a href="#relay">Running a relay</a></li>
       </ol>
     </li>
     <li><a href="#updates">Updates</a></li>
@@ -304,7 +305,7 @@ scoop install fa-krug/zubi</pre>
 </div>
 <pre>tar -xzf zubi_<span class="dim">&lt;version&gt;</span>_linux_arm64.tar.gz
 sudo install zubi_<span class="dim">&lt;version&gt;</span>_linux_arm64/zubi /usr/local/bin/</pre>
-<p>With Go 1.24 or later you can also run
+<p>With Go 1.26 or later you can also run
   <code>go install github.com/fa-krug/zubi/cli/cmd/zubi@latest</code>.</p>
 
 <h3 id="cli-config">Configure</h3>
@@ -339,6 +340,7 @@ zubi health               <span class="dim"># checks that Zubi answers</span></p
     <tr><td><code>zubi watch</code></td><td>A line whenever something changes; <code>--exec</code> runs a command each time</td></tr>
     <tr><td><code>zubi feed CALENDAR</code></td><td>The calendar’s subscription link for calendar apps</td></tr>
     <tr><td><code>zubi mcp</code></td><td>Serve Zubi to AI assistants (see below)</td></tr>
+    <tr><td><code>zubi relay</code></td><td>Run a relay for a Mac and clients on different networks (see below)</td></tr>
     <tr><td><code>zubi key</code></td><td>The name and access of the key in use</td></tr>
     <tr><td><code>zubi health</code></td><td>Whether Zubi answers, and with which key</td></tr>
     <tr><td><code>zubi config</code></td><td>The saved address and key (masked)</td></tr>
@@ -401,6 +403,43 @@ zubi reminders add "Call the plumber" --list Errands --due 2026-11-03T09:00 --js
 }</pre>
 <p>In Claude Code: <code>claude mcp add zubi -- zubi mcp</code>, after <code>zubi config</code> is set up.
   The assistant sees which items are writable, and with a Read key it can’t change anything at all.</p>
+
+<h3 id="relay">Running a relay</h3>
+<p>A relay is where a Mac running Zubi and its clients meet when they are on different networks, such
+  as a MacBook on the road and a Raspberry Pi at home. Both connect out to it and it copies messages
+  between them, so neither has to accept connections. What it copies is meant to be end-to-end
+  encrypted between the Mac and the client: the relay holds no key and sees only which addresses
+  connect, when, and how much they send.</p>
+<p><strong>Coming together in stages:</strong> this release of <code>zubi</code> has the relay itself.
+  Zubi for Mac and the client side of <code>zubi</code> learn to connect through it in an upcoming
+  release; until then nothing uses a relay.</p>
+<pre>zubi relay
+<span class="dim">Relay ready: wss://203.0.113.7</span></pre>
+<p>With no flags it finds the network’s public IPv4 address, gets a six-day certificate for it from
+  Let’s Encrypt, serves <code>wss://</code> on port 443 and renews the certificate on its own. Let’s
+  Encrypt checks by connecting to port 443 of that address, so it must be reachable from the internet.
+  When it isn’t, the relay says why and exits: it never falls back to unencrypted <code>ws://</code>.
+  <code>--listen :8443</code> listens elsewhere (forward port 443 to it), <code>--ip</code> or
+  <code>--domain</code> say what to certify, <code>--behind-tls-proxy</code> serves a platform or proxy
+  that provides <code>wss://</code> itself, and only <code>--no-tls</code> serves plain
+  <code>ws://</code>.</p>
+<p>Where to host it, in order of preference:</p>
+<ol>
+  <li><strong>A machine at home, if you can forward a port</strong>, such as the Raspberry Pi itself:
+    free, and nobody else involved. Forward TCP 443 on the router to it and run <code>zubi relay</code>
+    as a service. Your connection needs its own public IPv4 address (not carrier-grade NAT). When your
+    provider changes that address, the relay’s URL changes too; a free DuckDNS name with
+    <code>--domain</code> avoids that.</li>
+  <li><strong>Render’s free web service, if you can’t forward a port.</strong> Render provides
+    <code>wss://</code>, and sees only what any relay sees. A connected Mac’s pings keep the free
+    service from sleeping.</li>
+  <li><strong>A small server with a public address</strong>, such as a VPS or Oracle Cloud’s Always Free
+    tier: run <code>zubi relay</code> as at home, and the address never changes.</li>
+  <li><strong>Your own reverse proxy or Cloudflare Tunnel</strong>, pointed at
+    <code>zubi relay --behind-tls-proxy --listen 127.0.0.1:8080</code>.</li>
+</ol>
+<p>The <a href="https://github.com/fa-krug/zubi/blob/main/cli/README.md#running-a-relay">CLI README</a>
+  has a systemd service file, the Render settings and every flag.</p>
 
 <h2 id="updates">Updates</h2>
 <p>The app checks GitHub for a new release once a day, starting half a minute after launch. When there
