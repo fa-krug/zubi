@@ -15,6 +15,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/fa-krug/zubi/cli/internal/tunnel"
 )
 
 // The shapes Zubi's API returns, as openapi.json describes them. Fields a newer server adds are
@@ -267,22 +269,30 @@ func (e *UnreachableError) Error() string {
 }
 
 type Client struct {
+	// BaseURL starts every request's URL; through a relay its host is a placeholder.
 	BaseURL string
-	APIKey  string
-	HTTP    *http.Client
+	// Where names Zubi's endpoint in messages.
+	Where  string
+	APIKey string
+	HTTP   *http.Client
 }
 
-func NewClient(baseURL, apiKey string, timeout time.Duration) *Client {
-	return &Client{
-		BaseURL: strings.TrimRight(baseURL, "/"),
-		APIKey:  apiKey,
-		HTTP:    &http.Client{Timeout: timeout},
+// relayHost stands in for the Mac in request URLs through a relay; no DNS lookup is made for it.
+const relayHost = "http://zubi.relay"
+
+func NewClient(ep endpoint, apiKey string, timeout time.Duration) *Client {
+	c := &Client{BaseURL: strings.TrimRight(ep.URL, "/"), Where: ep.String(), APIKey: apiKey,
+		HTTP: &http.Client{Timeout: timeout}}
+	if ep.Relay != nil {
+		c.BaseURL = relayHost
+		c.HTTP.Transport = &http.Transport{DialContext: relayDialer(*ep.Relay, timeout), IdleConnTimeout: time.Minute}
 	}
+	return c
 }
 
 // NewStreamClient is for a response that stays open (watch): timeout bounds connecting and
 // waiting for the response headers, never the body.
-func NewStreamClient(baseURL, apiKey string, timeout time.Duration) *Client {
+func NewStreamClient(ep endpoint, apiKey string, timeout time.Duration) *Client {
 	transport := &http.Transport{
 		Proxy:                 http.ProxyFromEnvironment,
 		DialContext:           (&net.Dialer{Timeout: timeout, KeepAlive: 30 * time.Second}).DialContext,
@@ -290,10 +300,26 @@ func NewStreamClient(baseURL, apiKey string, timeout time.Duration) *Client {
 		ResponseHeaderTimeout: timeout,
 		DisableCompression:    true, // events must arrive as they are sent, not when a gzip block fills
 	}
-	return &Client{
-		BaseURL: strings.TrimRight(baseURL, "/"),
-		APIKey:  apiKey,
-		HTTP:    &http.Client{Transport: transport},
+	c := &Client{BaseURL: strings.TrimRight(ep.URL, "/"), Where: ep.String(), APIKey: apiKey,
+		HTTP: &http.Client{Transport: transport}}
+	if ep.Relay != nil {
+		c.BaseURL = relayHost
+		transport.Proxy = nil
+		transport.DialContext = relayDialer(*ep.Relay, timeout)
+	}
+	return c
+}
+
+// relayDialer opens each connection as a session through the relay. timeout bounds the
+// handshake; zero means none.
+func relayDialer(p tunnel.Pairing, timeout time.Duration) func(context.Context, string, string) (net.Conn, error) {
+	return func(ctx context.Context, _, _ string) (net.Conn, error) {
+		if timeout > 0 {
+			var cancel context.CancelFunc
+			ctx, cancel = context.WithTimeout(ctx, timeout)
+			defer cancel()
+		}
+		return tunnel.Dial(ctx, p, nil)
 	}
 }
 
@@ -378,8 +404,15 @@ func (c *Client) send(ctx context.Context, cmd apiCommand, req request) (*http.R
 	if err != nil {
 		var netErr net.Error
 		var opErr *net.OpError
-		if ctx.Err() == nil && (errors.As(err, &opErr) || (errors.As(err, &netErr) && netErr.Timeout())) {
-			return nil, &UnreachableError{URL: c.BaseURL, Err: err}
+		var unavailable *tunnel.UnavailableError
+		var refused tunnel.RefusedError
+		switch {
+		case errors.As(err, &refused):
+			return nil, refused
+		case errors.As(err, &unavailable) && ctx.Err() == nil:
+			return nil, &UnreachableError{URL: c.Where, Err: unavailable.Err}
+		case ctx.Err() == nil && (errors.As(err, &opErr) || (errors.As(err, &netErr) && netErr.Timeout())):
+			return nil, &UnreachableError{URL: c.Where, Err: err}
 		}
 		return nil, err
 	}

@@ -31,7 +31,7 @@ One repository, four things that ship, each released only when its own files cha
 | Folder | What it is | Language | Ships as |
 | --- | --- | --- | --- |
 | `Sources/` | The Mac app: menu bar, Settings window, permissions, the EventKit and Notes readers, the self-updater | Swift, SwiftUI | `Zubi-Universal-<version>.zip`, tag `v<version>` |
-| `Packages/ZubiAPI/` | Everything HTTP: server, routes, key check, response types, `openapi.json`, `/docs`, and the contract tests | Swift (Hummingbird) | inside the app |
+| `Packages/ZubiAPI/` | Everything HTTP: server, routes, key check, response types, `openapi.json`, `/docs`, the Mac's side of the relay, and the contract tests | Swift (Hummingbird) | inside the app |
 | `cli/` | `zubi`, the command-line client and relay | Go: the standard library, plus `golang.org/x/crypto` for the relay's certificates | archives per platform, tag `cli/v<version>` |
 | `site/` | The website at <https://fa-krug.github.io/zubi/>, including the generated API reference | HTML, CSS, a Python build script | GitHub Pages |
 
@@ -96,7 +96,8 @@ More detail, including the dev channel and Debug signing: [`docs/development.md`
 ```
 
 - **The API tests** run the real router in memory with fake Reminders, Calendar and Notes data, so they
-  need no permissions. They fail if a route isn't in the spec or the spec lists one that doesn't exist,
+  need no permissions. They also hold the app's relay handshake and pairing codes to the vectors the
+  CLI's tests use, in `Packages/ZubiAPI/Tests/Fixtures/`. They fail if a route isn't in the spec or the spec lists one that doesn't exist,
   if a response doesn't match its schema exactly, or if an error the server can give isn't documented.
 - **The CLI tests** fail if the CLI calls an endpoint or sends a parameter the spec doesn't declare, if
   a response type doesn't match its schema field for field, or if a command, exit code or config rule

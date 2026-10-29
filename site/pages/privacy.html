@@ -19,7 +19,7 @@
 <p>Stored on your Mac, and nowhere else:</p>
 <ul>
   <li>The keys you created for your devices, with their names, in your Keychain, and when each was
-    last used.</li>
+    last used. With a relay on, also the key that names this Mac’s room on the relay.</li>
   <li>The activity log: the last 500 things created or edited through the API, with the time, the key’s
     name and the item’s title, in <code>~/Library/Application Support/de.fa-krug.zubi/activity.json</code>.
     <strong>Clear</strong> under Settings › Activity deletes it.</li>
@@ -31,6 +31,11 @@
 <ul>
   <li><strong>Your devices.</strong> The app answers HTTP requests from the devices you connect to it.
     Whatever those devices or programs do with the data is up to you and them.</li>
+  <li><strong>A relay, if you turn one on.</strong> Under Settings › Server › Relay, the app connects to
+    the relay address you enter and stays connected while the server runs. Devices reach the Mac through
+    it, each session encrypted end to end with that device’s key, so whoever runs the relay can’t read
+    your data. It does see the IP addresses of the Mac and the devices, when they connect, and how much
+    they send. Zubi runs no relay of its own: it is one you run, or one run by someone you chose.</li>
   <li><strong>GitHub, for updates.</strong> Once a day the app asks GitHub’s API for the list of Zubi
     releases, and when you choose to update it downloads the new version from GitHub. GitHub, Inc. sees
     your IP address and a user agent naming Zubi, as it does for any visitor; see the
@@ -49,8 +54,9 @@
     Notes would.</li>
 </ul>
 <h2>The command-line client</h2>
-<p><code>zubi</code> connects only to the Zubi address you configure. It stores that address and the key
-  in a settings file readable only by your user account, and sends nothing anywhere else.</p>
+<p><code>zubi</code> connects only to the Zubi address you configure, or, after <code>zubi pair</code>, to
+  the relay in the pairing code. It stores that address or pairing and the key in a settings file
+  readable only by your user account, and sends nothing anywhere else.</p>
 <p>The exception is <code>zubi relay</code>, which you run yourself, on a machine you choose, so a Mac
   and its clients on different networks can reach each other. To get and renew its certificate, it
   asks a STUN server run by Cloudflare or Google for its network’s public IP address, and requests the
@@ -110,7 +116,8 @@
 <p>Auf dem Mac gespeichert, und nirgends sonst:</p>
 <ul>
   <li>Die Schlüssel, die Sie für Ihre Geräte anlegen, samt Namen, im Schlüsselbund, und wann jeder
-    zuletzt benutzt wurde.</li>
+    zuletzt benutzt wurde. Mit eingeschaltetem Relay auch der Schlüssel, der den Raum dieses Macs auf dem
+    Relay bezeichnet.</li>
   <li>Das Aktivitätsprotokoll: die letzten 500 über die API angelegten oder geänderten Einträge mit
     Zeit, Name des Schlüssels und Titel, in
     <code>~/Library/Application Support/de.fa-krug.zubi/activity.json</code>. <strong>Clear</strong>
@@ -123,6 +130,12 @@
 <ul>
   <li><strong>Ihre Geräte.</strong> Die App beantwortet HTTP-Anfragen der Geräte, die Sie mit ihr
     verbinden. Was diese Geräte oder Programme mit den Daten tun, liegt bei Ihnen und ihnen.</li>
+  <li><strong>Ein Relay, wenn Sie eines einschalten.</strong> Unter Settings › Server › Relay verbindet
+    sich die App mit der eingetragenen Relay-Adresse und bleibt verbunden, solange der Server läuft.
+    Geräte erreichen den Mac darüber, jede Sitzung Ende-zu-Ende verschlüsselt mit dem Schlüssel des
+    Geräts, sodass der Betreiber des Relays Ihre Daten nicht lesen kann. Er sieht aber die IP-Adressen
+    des Macs und der Geräte, wann sie sich verbinden und wie viel sie senden. Zubi selbst betreibt kein
+    Relay: Es ist eines, das Sie betreiben, oder das jemand betreibt, den Sie gewählt haben.</li>
   <li><strong>GitHub, für Updates.</strong> Einmal täglich fragt die App bei der GitHub-API die Liste
     der Zubi-Versionen ab, und wenn Sie ein Update wählen, lädt sie die neue Version von GitHub. GitHub,
     Inc. sieht dabei Ihre IP-Adresse und eine Kennung mit dem Namen Zubi, wie bei jedem Besucher; siehe
@@ -143,7 +156,8 @@
     jede eigene Änderung über iCloud synchronisiert.</li>
 </ul>
 <h2>Der Kommandozeilen-Client</h2>
-<p><code>zubi</code> verbindet sich nur mit der eingerichteten Zubi-Adresse. Adresse und Schlüssel
+<p><code>zubi</code> verbindet sich nur mit der eingerichteten Zubi-Adresse oder, nach
+  <code>zubi pair</code>, mit dem Relay aus dem Kopplungscode. Adresse oder Kopplung und Schlüssel
   speichert er in einer Einstellungsdatei, die nur Ihr Benutzerkonto lesen kann, und sendet nichts an
   andere Stellen.</p>
 <p>Die Ausnahme ist <code>zubi relay</code>, das Sie selbst auf einem Rechner Ihrer Wahl betreiben,

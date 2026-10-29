@@ -1,18 +1,38 @@
 # Relay
 
 `zubi relay` is where a Mac running Zubi and its clients meet when they are on different networks:
-both open a WebSocket to it, and it copies messages between the two. The code is
-[`cli/internal/relay`](../../cli/internal/relay) (the server, certificates, STUN),
-[`cli/internal/websocket`](../../cli/internal/websocket) (RFC 6455, both sides) and
-[`cli/cmd/zubi/relay.go`](../../cli/cmd/zubi/relay.go) (the command). How to run and host one is in
-[cli/README.md](../../cli/README.md#running-a-relay).
+both open a WebSocket to it, and it copies messages between the two. Inside, each client and the Mac
+run a Noise handshake keyed with the client's device key, so everything after it is end-to-end
+encrypted and the relay only ever copies ciphertext.
+
+| Part | Code |
+| --- | --- |
+| The relay server, certificates, STUN | [`cli/internal/relay`](../../cli/internal/relay), [`cli/cmd/zubi/relay.go`](../../cli/cmd/zubi/relay.go) |
+| WebSockets (RFC 6455, both sides) | [`cli/internal/websocket`](../../cli/internal/websocket) |
+| Noise, in Go | [`cli/internal/noise`](../../cli/internal/noise) |
+| Sessions and pairing codes, the client's side, and a Go host for tests | [`cli/internal/tunnel`](../../cli/internal/tunnel), [`cli/cmd/zubi/pair.go`](../../cli/cmd/zubi/pair.go) (`zubi pair`, `zubi tunnel`) |
+| The Mac's side: Noise in Swift, the room, sessions into Zubi's own server | [`Packages/ZubiAPI/Sources/ZubiAPI/Relay`](../../Packages/ZubiAPI/Sources/ZubiAPI/Relay), wired up in `BridgeController` |
+| Settings | Relay in `ServerPane`, pairing codes in `KeysPane` |
+
+How to run and host a relay, and pair a device, is in [cli/README.md](../../cli/README.md#running-a-relay).
 
 ## Invariants
 
-- **The relay never holds a key and never reads what it copies.** Messages between a host and a client
-  are meant to be end-to-end encrypted (a Noise handshake keyed with the device key, between the Mac
-  and the client), so a relay, or whoever runs it, learns only who connects, when, and how much.
-  Nothing in `internal/relay` may need to understand a data message.
+- **The relay never holds a key and never reads what it copies.** Each session is end-to-end
+  encrypted between the Mac and the client (Noise, keyed with the device key), so a relay, or whoever
+  runs it, learns only who connects, when, and how much. Nothing in `internal/relay` may need to
+  understand a data message.
+- **A session reaches Zubi's own server, nothing else.** The Mac decrypts a session into a TCP
+  connection to its own API on loopback (or the address it binds to), so every request still passes
+  the bearer-key check, the Off/Read/Read & Write settings and the activity log. The handshake only
+  proves the client holds some current key; the request's `Authorization` header decides what it
+  may do.
+- **Both Noise implementations are held to the same vectors**,
+  [`relay-noise-vectors.json`](../../Packages/ZubiAPI/Tests/Fixtures/relay-noise-vectors.json),
+  generated with an independent implementation (github.com/flynn/noise). A change to either one, or
+  to the prologue, key or pairing format, changes that file and both test suites.
+- **Clients only use wss:// relays.** A pairing code with a `ws://` relay is refused; the Mac only
+  connects to `wss://`.
 - **No silent fallback to plain.** Without a certificate the relay doesn't start: `Obtain` failing
   exits with 1 and the reason. Plain `ws://` takes `--no-tls`. `--behind-tls-proxy` serves plain HTTP
   for a proxy that terminates TLS, and refuses every `/v1` WebSocket whose `X-Forwarded-Proto` isn't
@@ -28,12 +48,6 @@ both open a WebSocket to it, and it copies messages between the two. The code is
   only one that covers IP addresses.
 - **`golang.org/x/crypto` is the CLI's only dependency, and only `internal/relay` imports it** (for
   `acme`). The rest of the CLI stays standard library only.
-
-## Status
-
-This is the first part of connecting across networks. The relay exists; the Mac app's relay
-connection, the client side (`zubi tunnel`), pairing, and the Noise layer between them are still to
-come. Until they ship, nothing connects to a relay on its own.
 
 ## Protocol, version 1
 
@@ -71,6 +85,40 @@ bytes (a Noise message's limit), each way unchanged. It pings both ends every 30
 end that stays silent for 75. When either end closes, the relay closes the other with the same code
 and reason, when RFC 6455 lets that code be sent.
 
+### Inside a session
+
+The relay copies messages unchanged; this is what the Mac and the client put in them.
+
+1. **The client's first message** is binary: the byte `1` (the version), one byte giving the length
+   of the key's ID, the key's ID (UTF-8, at most 255 bytes), then the first Noise handshake message.
+   The ID is in the clear so the Mac knows which key's secret to use; it is a random UUID.
+2. **The handshake** is `Noise_NNpsk0_25519_AESGCM_SHA256`:
+   - prologue: `zubi-relay-v1`, a zero byte, the room, a zero byte, the key's ID;
+   - pre-shared key: SHA-256 of `zubi-relay-v1 psk`, a zero byte and the key's secret.
+
+   The Mac answers with the second handshake message as one binary message. A Mac that doesn't know
+   the key, or whose handshake fails because the client doesn't hold that secret, closes with 1008
+   instead (the app's WebSocket API can send no code of its own), and `zubi` reports the key as
+   refused. A client that can't read the answer knows it didn't come from the Mac holding the key.
+3. **Then every message is one Noise transport message**: binary, at most 65,535 bytes, so at most
+   65,519 bytes of the TCP stream to or from Zubi's API. An empty message is its sender's end of
+   stream, like TCP's FIN: the other side finishes its own sending and then closes. Closing the
+   WebSocket with 1000 ends the session at once.
+
+### Pairing codes
+
+A pairing code is `zubi1:` and base64url (without padding) of a JSON object with `relay` (the
+`wss://` URL), `room`, `key_id`, `secret` and `name` (the key's, for display). It carries the key's
+secret, so it is as secret as the key: Settings shows it next to the key, and `zubi pair` checks it by
+asking the Mac, through the relay, which key it is before saving it.
+
+### The Mac
+
+The room key is an Ed25519 key made on first use and kept in the Keychain next to the device keys
+(account `relay-room-key`), so the room, and every pairing code, outlives restarts and updates. Zubi
+Dev has its own, like its own keys. The relay connection runs while the server runs and the relay is
+on; it reconnects after a failure, waiting 1 second, then twice as long each time, up to a minute.
+
 ### Close codes
 
 | Code | Sent to | Meaning |
@@ -79,6 +127,7 @@ and reason, when RFC 6455 lets that code be sent.
 | 4001 | client | the host didn't accept the session in time |
 | 4002 | client | the host disconnected before accepting |
 | 4003 | host | the registration was malformed or its signature didn't verify |
+| 1008 | client | from the Mac, during the handshake: the key was refused |
 | 1013 | either | the relay is full (1,000 rooms) or shutting down: try again later |
 | 1001 | either | the relay is shutting down, or the other end disappeared |
 
@@ -118,7 +167,13 @@ Let's Encrypt's default profile.
 ## Tests
 
 `go test ./...` in `cli/` covers the WebSocket framing, the protocol (registration, pairing,
-replacement, timeouts, limits, proxy mode) and STUN. The certificate tests run against Pebble, Let's
+replacement, timeouts, limits, proxy mode), STUN, Noise against the shared vectors, and whole
+sessions: the CLI, `zubi pair` and `zubi tunnel` against the fake Zubi, through a real relay and the Go
+host. `swift test` in `Packages/ZubiAPI` holds the app's Noise, key derivation and pairing codes to
+the same vectors. Nothing in CI runs the app against a relay, so a change to `RelayHost` needs a run
+by hand: a relay with a certificate the Mac trusts (the app only connects to `wss://`), the app with
+the relay on, `zubi pair` with a code from Settings › Keys, then `zubi lists` and a request through
+`zubi tunnel`. The certificate tests run against Pebble, Let's
 Encrypt's test CA, when `ZUBI_PEBBLE` names its binary; CI installs it:
 
 ```sh

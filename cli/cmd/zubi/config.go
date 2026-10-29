@@ -8,14 +8,37 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/fa-krug/zubi/cli/internal/tunnel"
 )
 
 const defaultURL = "http://127.0.0.1:8787"
 
-// Config is what `zubi config set` stores. Flags and environment variables override it per run.
+// Config is what `zubi config set` and `zubi pair` store. Flags and environment variables
+// override it per run.
 type Config struct {
 	URL    string `json:"url,omitempty"`
 	APIKey string `json:"apiKey,omitempty"`
+	// Relay is set by `zubi pair`: Zubi is reached through a relay rather than at URL.
+	Relay *tunnel.Pairing `json:"relay,omitempty"`
+}
+
+// endpoint is where Zubi is: an address, or a Mac on a relay.
+type endpoint struct {
+	URL   string
+	Relay *tunnel.Pairing
+}
+
+// String names the endpoint for people.
+func (e endpoint) String() string {
+	if e.Relay == nil {
+		return e.URL
+	}
+	room := e.Relay.Room
+	if len(room) > 8 {
+		room = room[:8] + "…"
+	}
+	return fmt.Sprintf("the relay %s (room %s)", e.Relay.Relay, room)
 }
 
 // configPath is ~/.config/zubi/config.json on Linux, ~/Library/Application Support/zubi on macOS
@@ -66,15 +89,20 @@ func saveConfig(path string, cfg Config) error {
 	return os.Rename(tmp, path)
 }
 
-// resolve applies precedence: flag, then environment, then config file, then the default.
-func resolve(flagURL, flagKey string) (url, key string, err error) {
+// resolve applies precedence: flag, then environment, then config file, then the default. A URL
+// from a flag or the environment wins over a pairing; otherwise a pairing means the relay, and
+// its key is the default key.
+func resolve(flagURL, flagKey string) (ep endpoint, key string, err error) {
 	cfg, _, err := loadConfig()
 	if err != nil {
-		return "", "", err
+		return endpoint{}, "", err
 	}
-	url = first(flagURL, os.Getenv("ZUBI_URL"), cfg.URL, defaultURL)
-	key = first(flagKey, os.Getenv("ZUBI_API_KEY"), cfg.APIKey)
-	return url, key, nil
+	if override := first(flagURL, os.Getenv("ZUBI_URL")); override == "" && cfg.Relay != nil {
+		ep = endpoint{Relay: cfg.Relay}
+		return ep, first(flagKey, os.Getenv("ZUBI_API_KEY"), cfg.APIKey, cfg.Relay.Secret), nil
+	}
+	ep = endpoint{URL: first(flagURL, os.Getenv("ZUBI_URL"), cfg.URL, defaultURL)}
+	return ep, first(flagKey, os.Getenv("ZUBI_API_KEY"), cfg.APIKey), nil
 }
 
 func first(values ...string) string {

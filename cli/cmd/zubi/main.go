@@ -15,6 +15,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/fa-krug/zubi/cli/internal/tunnel"
 )
 
 // Set at release time with -ldflags "-X main.version=...".
@@ -71,6 +73,11 @@ Connect:
                               the key, so use a read-only one
                               [--from YYYY-MM-DD] [--to YYYY-MM-DD] [--download]
   mcp                         Serve the API to AI assistants over stdio (Model Context Protocol)
+  pair CODE                   Reach Zubi through a relay from now on, with a pairing code from
+                              Zubi › Settings › Keys ("-" reads it from stdin); end-to-end
+                              encrypted, and checked before it is saved
+  tunnel                      Serve Zubi through the relay at a local address, for other
+                              programs on this computer   [--listen ADDR] (default 127.0.0.1:8787)
 
 Relay (where a Mac and its clients meet when they are on different networks):
   relay                       Run a relay: wss:// on port 443 with a Let's Encrypt certificate
@@ -84,7 +91,8 @@ Relay (where a Mac and its clients meet when they are on different networks):
 Other:
   health                      Check that Zubi answers, and which key you use
   key                         The key's name and access (read, or read & write)
-  config                      Show settings; "config set url URL", "config set key KEY|-"
+  config                      Show settings; "config set url URL", "config set key KEY|-",
+                              "config unset relay"
   config discover             Find Zubi on this network     [--save] [--pick N]
   version                     Print the version
 
@@ -109,6 +117,7 @@ Exit codes: 0 ok, 1 error (including read-only, 403, and locked note, 409), 2 ba
 
 Examples:
   zubi config discover --save    # or: zubi config set url http://mac.local:8787
+  zubi pair -                    # paste a pairing code: reach Zubi through a relay
   zubi config set key -          # reads the key from stdin, so it stays out of shell history
   zubi events --from 2026-11-02 --to 2026-11-06
   zubi reminders -q milk
@@ -240,6 +249,8 @@ func defineFlags(fs *flag.FlagSet, command string, o *options) {
 	case "config":
 		boolean(&o.save, "save")
 		fs.IntVar(&o.pick, "pick", 0, "")
+	case "tunnel":
+		str(&o.listen, "listen")
 	case "relay":
 		str(&o.listen, "listen")
 		str(&o.ip, "ip")
@@ -375,7 +386,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	o := options{set: map[string]bool{}}
 	fs := newFlagSet(command, &g)
 	cmd, isAPI := lookup(command)
-	if !isAPI && command != "config" && command != "mcp" && command != "relay" {
+	if !isAPI && command != "config" && command != "mcp" && command != "relay" && command != "pair" && command != "tunnel" {
 		fmt.Fprintf(stderr, "zubi: unknown command %q; run `zubi help`\n", command)
 		return exitUsage
 	}
@@ -401,6 +412,10 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		return runMCP(g, stdin, stdout, stderr)
 	case "relay":
 		return runRelay(positional, o, stdout, stderr)
+	case "pair":
+		return runPair(positional, g, stdin, stdout, stderr)
+	case "tunnel":
+		return runTunnel(positional, o, stdout, stderr)
 	}
 
 	req, err := buildRequest(command, o, positional, stdin)
@@ -416,7 +431,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		return exitError
 	}
 
-	baseURL, key, err := resolve(g.url, g.key)
+	ep, key, err := resolve(g.url, g.key)
 	if err != nil {
 		fmt.Fprintln(stderr, "zubi:", err)
 		return exitError
@@ -425,12 +440,17 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "zubi: "+noKey)
 		return exitUsage
 	}
-	client := NewClient(baseURL, key, g.timeout)
+	if command == "feed" && !o.download && ep.Relay != nil {
+		fmt.Fprintln(stderr, "zubi feed: a calendar app can't subscribe through the relay. Run `zubi tunnel` on the "+
+			"computer the calendar app runs on and pass --url http://127.0.0.1:8787, or use --download")
+		return exitUsage
+	}
+	client := NewClient(ep, key, g.timeout)
 	ctx := context.Background()
 
 	switch command {
 	case "watch":
-		return runWatch(NewStreamClient(baseURL, key, g.timeout), cmd, o, g, stdout, stderr)
+		return runWatch(NewStreamClient(ep, key, g.timeout), cmd, o, g, stdout, stderr)
 	case "feed":
 		return runFeed(ctx, client, cmd, req, o, g, stdout, stderr)
 	case "health":
@@ -523,7 +543,7 @@ func runHealth(ctx context.Context, client *Client, cmd apiCommand, g globals, s
 		fmt.Fprintln(stdout, strings.TrimSpace(string(body)))
 		return exitOK
 	}
-	fmt.Fprintf(stdout, "%s at %s\n", strings.TrimSpace(string(body)), client.BaseURL)
+	fmt.Fprintf(stdout, "%s at %s\n", strings.TrimSpace(string(body)), client.Where)
 	if client.APIKey == "" {
 		return exitOK
 	}
@@ -556,10 +576,11 @@ func fail(stderr io.Writer, err error) int {
 	var apiErr *APIError
 	var unreachable *UnreachableError
 	var usageErr usageError
+	var refused tunnel.RefusedError
 	switch {
 	case errors.As(err, &usageErr):
 		return exitUsage
-	case errors.As(err, &apiErr) && apiErr.Status == 401:
+	case errors.As(err, &apiErr) && apiErr.Status == 401, errors.As(err, &refused):
 		return exitUnauthorized
 	case errors.As(err, &apiErr) && apiErr.Status == 404:
 		return exitNotFound
@@ -583,8 +604,12 @@ func runConfig(args []string, g globals, o options, stdin io.Reader, stdout, std
 		return exitUsage
 	}
 	if len(args) == 0 || (len(args) == 1 && args[0] == "show") {
-		baseURL, key, _ := resolve(g.url, g.key)
-		fmt.Fprintf(stdout, "file  %s\nurl   %s\nkey   %s\n", path, baseURL, masked(key))
+		ep, key, _ := resolve(g.url, g.key)
+		if ep.Relay != nil {
+			fmt.Fprintf(stdout, "file  %s\nrelay %s\nroom  %s\nkey   %s\n", path, ep.Relay.Relay, ep.Relay.Room, masked(key))
+			return exitOK
+		}
+		fmt.Fprintf(stdout, "file  %s\nurl   %s\nkey   %s\n", path, ep.URL, masked(key))
 		return exitOK
 	}
 	switch {
@@ -595,6 +620,7 @@ func runConfig(args []string, g globals, o options, stdin io.Reader, stdout, std
 			return exitUsage
 		}
 		cfg.URL = strings.TrimRight(args[2], "/")
+		cfg.Relay = nil // an address replaces a relay
 	case len(args) == 3 && args[0] == "set" && args[1] == "key":
 		key := args[2]
 		if key == "-" {
@@ -610,14 +636,17 @@ func runConfig(args []string, g globals, o options, stdin io.Reader, stdout, std
 			return exitUsage
 		}
 		cfg.APIKey = key
-	case len(args) == 2 && args[0] == "unset" && (args[1] == "url" || args[1] == "key"):
-		if args[1] == "url" {
+	case len(args) == 2 && args[0] == "unset" && (args[1] == "url" || args[1] == "key" || args[1] == "relay"):
+		switch args[1] {
+		case "url":
 			cfg.URL = ""
-		} else {
+		case "key":
 			cfg.APIKey = ""
+		case "relay":
+			cfg.Relay = nil
 		}
 	default:
-		fmt.Fprintln(stderr, "zubi config: use `config`, `config set url URL`, `config set key KEY|-`, `config unset url|key` or `config discover`")
+		fmt.Fprintln(stderr, "zubi config: use `config`, `config set url URL`, `config set key KEY|-`, `config unset url|key|relay` or `config discover`")
 		return exitUsage
 	}
 	if err := saveConfig(path, cfg); err != nil {

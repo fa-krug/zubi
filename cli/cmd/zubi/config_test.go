@@ -114,9 +114,9 @@ func TestConfigBadUsage(t *testing.T) {
 func TestConfigPrecedence(t *testing.T) {
 	path := isolate(t)
 
-	url, key, err := resolve("", "")
-	if err != nil || url != defaultURL || key != "" {
-		t.Errorf("nothing set: %q %q %v", url, key, err)
+	ep, key, err := resolve("", "")
+	if err != nil || ep.URL != defaultURL || ep.Relay != nil || key != "" {
+		t.Errorf("nothing set: %+v %q %v", ep, key, err)
 	}
 
 	f := newFakeZubi(t)
@@ -145,9 +145,9 @@ func TestConfigPrecedence(t *testing.T) {
 	}
 	expect("flag URL over env", "env-key", "--url", f.URL)
 
-	url, key, _ = resolve("http://flag:1", "")
-	if url != "http://flag:1" || key != "env-key" {
-		t.Errorf("resolve = %q %q", url, key)
+	ep, key, _ = resolve("http://flag:1", "")
+	if ep.URL != "http://flag:1" || key != "env-key" {
+		t.Errorf("resolve = %+v %q", ep, key)
 	}
 	if _, out, _ := runZubi(t, "", "config"); !strings.Contains(out, "url   http://127.0.0.1:1") || !strings.Contains(out, "key   ********\n") {
 		t.Errorf("config shows the effective settings: %q", out)

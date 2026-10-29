@@ -131,6 +131,7 @@ func runDiscover(cfg Config, path string, g globals, o options, stdout, stderr i
 		return exitUsage
 	}
 	cfg.URL = found[pick-1].URL
+	cfg.Relay = nil // an address found on this network replaces a relay
 	if err := saveConfig(path, cfg); err != nil {
 		fmt.Fprintln(stderr, "zubi config:", err)
 		return exitError

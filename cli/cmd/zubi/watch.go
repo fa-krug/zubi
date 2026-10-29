@@ -60,7 +60,7 @@ func runWatch(client *Client, cmd apiCommand, o options, g globals, stdout, stde
 		}
 	}
 	if !g.json {
-		fmt.Fprintf(stderr, "zubi watch: watching %s for changes; Ctrl-C stops\n", client.BaseURL)
+		fmt.Fprintf(stderr, "zubi watch: watching %s for changes; Ctrl-C stops\n", client.Where)
 	}
 
 	failures := 0
@@ -72,7 +72,7 @@ func runWatch(client *Client, cmd apiCommand, o options, g globals, stdout, stde
 		var apiErr *APIError
 		if errors.As(err, &apiErr) && apiErr.Status < 500 && apiErr.Status != 429 {
 			if apiErr.Status == 404 {
-				fmt.Fprintf(stderr, "zubi watch: Zubi at %s doesn't report changes (404); update Zubi on the Mac\n", client.BaseURL)
+				fmt.Fprintf(stderr, "zubi watch: Zubi at %s doesn't report changes (404); update Zubi on the Mac\n", client.Where)
 				return exitNotFound
 			}
 			return fail(stderr, err) // a refused key or a refusal won't change by retrying

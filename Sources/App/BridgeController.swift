@@ -63,6 +63,14 @@ final class BridgeController: ObservableObject {
     @Published var customHost: String
     @Published var port: Int
 
+    // MARK: Relay
+
+    @Published var relayEnabled: Bool
+    /// The relay's wss:// address, as typed; applied with `applyRelaySettings()`.
+    @Published var relayURL: String
+    /// Nil while the relay is off or the server stopped.
+    @Published private(set) var relayStatus: RelayHost.Status?
+
     // MARK: Keys and activity
 
     /// In Settings' order. The secrets are in the Keychain; see `KeyStore`.
@@ -86,6 +94,9 @@ final class BridgeController: ObservableObject {
     private var serverTask: Task<Void, Never>?
     /// Tells a late "bound" callback from a server that has since stopped apart from the current one.
     private var serverGeneration = 0
+    private var relayHost: RelayHost?
+    /// Tells a stopped relay connection's late status apart from the current one's.
+    private var relayGeneration = 0
     private var observers: [NSObjectProtocol] = []
 
     var remindersGranted: Bool { reminderStatus == .fullAccess }
@@ -145,6 +156,8 @@ final class BridgeController: ObservableObject {
         customHost = defaults.string(forKey: SettingsKey.customHost) ?? ""
         port = defaults.object(forKey: SettingsKey.port) as? Int ?? 8787
         keepAwake = defaults.bool(forKey: SettingsKey.keepAwake)
+        relayEnabled = defaults.bool(forKey: SettingsKey.relayEnabled)
+        relayURL = defaults.string(forKey: SettingsKey.relayURL) ?? ""
         keyLastUsed = defaults.dictionary(forKey: SettingsKey.keyLastUsed) as? [String: Date] ?? [:]
         activity = ActivityLog.load()
         launchAtLogin = SMAppService.mainApp.status == .enabled
@@ -253,9 +266,10 @@ final class BridgeController: ObservableObject {
         let generation = serverGeneration
         let advertise = bindMode == .allInterfaces
         let onRunning: @Sendable () -> Void = { [weak self] in
-            guard advertise else { return }
             Task { @MainActor in
                 guard let self, self.serverGeneration == generation, self.serverTask != nil else { return }
+                self.startRelay(serving: config)
+                guard advertise else { return }
                 self.bonjour.start(port: config.port)
                 self.isAdvertising = self.bonjour.isAdvertising
             }
@@ -270,6 +284,8 @@ final class BridgeController: ObservableObject {
             }
             self.bonjour.stop()
             self.isAdvertising = false
+            self.stopRelay()
+            self.servingConfig = nil
             self.isRunning = false
             self.serverTask = nil
             self.append("Server stopped")
@@ -310,6 +326,65 @@ final class BridgeController: ObservableObject {
         defaults.set(customHost, forKey: SettingsKey.customHost)
         defaults.set(port, forKey: SettingsKey.port)
         restart()
+    }
+
+    // MARK: Relay
+
+    /// Saves the relay settings and reconnects, while the server runs.
+    func applyRelaySettings() {
+        relayURL = relayURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        let defaults = UserDefaults.standard
+        defaults.set(relayEnabled, forKey: SettingsKey.relayEnabled)
+        defaults.set(relayURL, forKey: SettingsKey.relayURL)
+        stopRelay()
+        if let config = servingConfig { startRelay(serving: config) }
+    }
+
+    /// The server's address and port while it runs, for the relay to pass sessions to.
+    private var servingConfig: ServerConfig?
+
+    private func startRelay(serving config: ServerConfig) {
+        servingConfig = config
+        guard relayEnabled, relayHost == nil else { return }
+        let url = URL(string: relayURL)
+        guard let url, RelayHost.isValidRelay(url) else {
+            relayStatus = .failed("Enter the relay's address, starting with wss://.")
+            return
+        }
+        relayGeneration += 1
+        let generation = relayGeneration
+        let keyRing = keyRing
+        // A server on all interfaces is reached on loopback; one on a specific address only there.
+        let target = config.host == "0.0.0.0" ? "127.0.0.1" : config.host
+        do {
+            let host = try RelayHost(
+                relay: url, roomKey: KeyStore.roomKey(), keys: { keyRing.keys },
+                targetHost: target, targetPort: config.port,
+                onStatus: { [weak self] status in
+                    Task { @MainActor in
+                        guard let self, self.relayGeneration == generation else { return }
+                        self.relayStatus = status
+                    }
+                })
+            relayHost = host
+            relayStatus = .connecting
+            host.start()
+        } catch {
+            relayStatus = .failed(String(describing: error))
+        }
+    }
+
+    private func stopRelay() {
+        relayGeneration += 1
+        relayHost?.stop()
+        relayHost = nil
+        relayStatus = nil
+    }
+
+    /// The code a device pastes into `zubi pair` to use `key` through the relay; nil while there
+    /// is no relay connection.
+    func pairingCode(for key: StoredKey) -> String? {
+        relayHost?.pairingCode(for: key.apiKey)
     }
 
     private func updateKeepAwake() {
