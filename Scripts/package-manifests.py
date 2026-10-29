@@ -40,12 +40,18 @@ def main():
 class Zubi < Formula
   desc "{DESCRIPTION}"
   homepage "{HOMEPAGE}"
-  version "{version}"
   license "MIT"
 
+  # Homebrew only allows a URL inside on_intel/on_arm; the one universal archive serves both.
   on_macos do
-    url "{mac_url}"
-    sha256 "{mac_sum}"
+    on_intel do
+      url "{mac_url}"
+      sha256 "{mac_sum}"
+    end
+    on_arm do
+      url "{mac_url}"
+      sha256 "{mac_sum}"
+    end
   end
 
   on_linux do

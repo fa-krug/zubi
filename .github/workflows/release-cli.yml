@@ -8,6 +8,8 @@ on:
     branches: [main]
     paths:
       - 'cli/**'
+      # Its README ships inside the archives, but a wording fix alone isn't worth a release.
+      - '!cli/**/*.md'
       - '.github/workflows/release-cli.yml'
   workflow_dispatch:
 

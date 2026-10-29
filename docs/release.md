@@ -102,15 +102,15 @@ Every channel installs the archives on the GitHub Release, pinned by their check
 | --- | --- | --- |
 | GitHub Releases | all | download the archive for your system |
 | Homebrew tap `fa-krug/homebrew-tap` | macOS, Linux x86-64 and ARM64 | `brew install fa-krug/tap/zubi` |
-| Scoop bucket `fa-krug/scoop-bucket` | Windows x86-64 and ARM64 | `scoop bucket add zubi https://github.com/fa-krug/scoop-bucket` then `scoop install zubi` |
+| Scoop bucket `fa-krug/scoop-bucket` | Windows x86-64 and ARM64 | `scoop bucket add fa-krug https://github.com/fa-krug/scoop-bucket` then `scoop install fa-krug/zubi` |
 | Go | anything Go builds for | `go install github.com/fa-krug/zubi/cli/cmd/zubi@latest` |
 
 After publishing, the last step of `release-cli.yml` runs `Scripts/package-manifests.py`, which writes
 `Formula/zubi.rb` for the tap and `bucket/zubi.json` for the bucket from the release's version and
 checksums, and pushes both. It needs:
 
-1. The two public repositories, `fa-krug/homebrew-tap` and `fa-krug/scoop-bucket`, each with at least
-   one commit. The workflow creates the files in them.
+1. The two public repositories, `fa-krug/homebrew-tap` and `fa-krug/scoop-bucket`. They exist, seeded
+   by hand with 0.1.1; every later release rewrites their files.
 2. A fine-grained token with **Contents: Read and write** on those two repositories only, stored in
    this repository as the secret `PACKAGES_TOKEN`.
 

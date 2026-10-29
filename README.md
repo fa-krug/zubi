@@ -96,9 +96,19 @@ zubi reminders add "Buy milk" --list Groceries --due 2026-11-02
 zubi reminders --due overdue --json
 ```
 
-Download it from the [CLI releases](https://github.com/fa-krug/zubi/releases?q=cli&expanded=true)
-(tagged `cli/v…`), or see [cli/README.md](cli/README.md) for every install option, command and exit
-code.
+Install it with Homebrew on macOS and Linux, or Scoop on Windows:
+
+```bash
+brew install fa-krug/tap/zubi
+```
+
+```powershell
+scoop bucket add fa-krug https://github.com/fa-krug/scoop-bucket
+scoop install fa-krug/zubi
+```
+
+Or download it from the [CLI releases](https://github.com/fa-krug/zubi/releases?q=cli&expanded=true)
+(tagged `cli/v…`). [cli/README.md](cli/README.md) has every install option, command and exit code.
 
 ## Privacy and security
 

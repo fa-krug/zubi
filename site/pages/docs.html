@@ -280,7 +280,13 @@
   it, for macOS, Linux (including a Raspberry Pi) and Windows.</p>
 
 <h3 id="cli-install">Install</h3>
-<p>Download the archive for your system from the
+<p>On macOS and Linux, with <a href="https://brew.sh">Homebrew</a>:</p>
+<pre>brew install fa-krug/tap/zubi</pre>
+<p>On Windows, with <a href="https://scoop.sh">Scoop</a>:</p>
+<pre>scoop bucket add fa-krug https://github.com/fa-krug/scoop-bucket
+scoop install fa-krug/zubi</pre>
+<p>Both keep it up to date (<code>brew upgrade</code>, <code>scoop update zubi</code>). Otherwise, or for
+32-bit Raspberry Pi OS, download the archive for your system from the
   <a href="https://github.com/fa-krug/zubi/releases?q=cli&amp;expanded=true">CLI releases</a> (tagged
   <code>cli/v…</code>), unpack it, and put <code>zubi</code> on your <code>PATH</code>:</p>
 <div class="table-scroll">

@@ -40,6 +40,22 @@ write, so you can take it back without touching the others.
 
 ## Install
 
+### Homebrew (macOS and Linux)
+
+```sh
+brew install fa-krug/tap/zubi
+```
+
+`brew upgrade` keeps it current. Homebrew on Linux covers x86-64 and ARM64; for 32-bit Raspberry Pi
+OS, use the ARMv7 archive below.
+
+### Scoop (Windows)
+
+```powershell
+scoop bucket add fa-krug https://github.com/fa-krug/scoop-bucket
+scoop install fa-krug/zubi
+```
+
 ### From a release
 
 Releases are tagged `cli/vX.Y.Z` at <https://github.com/fa-krug/zubi/releases>. Each has one
