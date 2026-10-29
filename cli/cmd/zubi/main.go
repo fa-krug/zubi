@@ -78,6 +78,8 @@ Connect:
                               encrypted, and checked before it is saved
   tunnel                      Serve Zubi through the relay at a local address, for other
                               programs on this computer   [--listen ADDR] (default 127.0.0.1:8787)
+                              [--install-service]  keep it running as a systemd service (Linux)
+                              [--uninstall-service]
 
 Relay (where a Mac and its clients meet when they are on different networks):
   relay                       Run a relay: wss:// on port 443 with a Let's Encrypt certificate
@@ -87,6 +89,9 @@ Relay (where a Mac and its clients meet when they are on different networks):
                               [--behind-tls-proxy]  plain HTTP on $PORT, for a platform that
                                                     serves wss:// itself
                               [--no-tls]  plain ws://; only on a network you trust
+                              [--install-service]  keep it running, with these flags, as a
+                                                   systemd service (Linux; asks for sudo)
+                              [--uninstall-service]
 
 Other:
   health                      Check that Zubi answers, and which key you use
@@ -147,9 +152,10 @@ type options struct {
 	exec           string
 	download, save bool
 	pick           int
-	// Running a relay.
+	// Running a relay or a tunnel.
 	listen, ip, domain, stateDir, acmeDirectory string
 	noTLS, behindProxy                          bool
+	installService, uninstallService            bool
 	// Writing.
 	title, notes, priority, start, end, location, link, occurrence, text, htmlBody string
 	allDay, timed, done, undone, clearDue, clearNotes, clearLocation, clearLink    bool
@@ -251,8 +257,12 @@ func defineFlags(fs *flag.FlagSet, command string, o *options) {
 		fs.IntVar(&o.pick, "pick", 0, "")
 	case "tunnel":
 		str(&o.listen, "listen")
+		boolean(&o.installService, "install-service")
+		boolean(&o.uninstallService, "uninstall-service")
 	case "relay":
 		str(&o.listen, "listen")
+		boolean(&o.installService, "install-service")
+		boolean(&o.uninstallService, "uninstall-service")
 		str(&o.ip, "ip")
 		str(&o.domain, "domain")
 		str(&o.stateDir, "state")
@@ -410,12 +420,16 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			return exitUsage
 		}
 		return runMCP(g, stdin, stdout, stderr)
-	case "relay":
-		return runRelay(positional, o, stdout, stderr)
+	case "relay", "tunnel":
+		if o.installService || o.uninstallService {
+			return runService(command, rest, positional, o, stdout, stderr)
+		}
+		if command == "relay" {
+			return runRelay(positional, o, stdout, stderr)
+		}
+		return runTunnel(positional, o, stdout, stderr)
 	case "pair":
 		return runPair(positional, g, stdin, stdout, stderr)
-	case "tunnel":
-		return runTunnel(positional, o, stdout, stderr)
 	}
 
 	req, err := buildRequest(command, o, positional, stdin)

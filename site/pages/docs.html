@@ -15,7 +15,16 @@
     </li>
     <li><a href="#keys">Keys</a></li>
     <li><a href="#activity">Activity</a></li>
-    <li><a href="#network">Other devices</a></li>
+    <li><a href="#network">Other devices</a>
+      <ol>
+        <li><a href="#choose">Choose how</a></li>
+        <li><a href="#relay">Through a relay</a></li>
+        <li><a href="#relay-server">Run the relay</a></li>
+        <li><a href="#relay-mac">Connect the Mac</a></li>
+        <li><a href="#relay-device">Pair each device</a></li>
+        <li><a href="#network-other">Other ways</a></li>
+      </ol>
+    </li>
     <li><a href="#api">The API</a>
       <ol>
         <li><a href="#changes">Live changes</a></li>
@@ -29,8 +38,6 @@
         <li><a href="#cli-commands">Commands</a></li>
         <li><a href="#agents">For agents and scripts</a></li>
         <li><a href="#mcp">Claude Desktop and MCP</a></li>
-        <li><a href="#relay">Through a relay</a></li>
-        <li><a href="#relay-server">Running a relay</a></li>
       </ol>
     </li>
     <li><a href="#updates">Updates</a></li>
@@ -195,30 +202,132 @@
 
 <h2 id="network">Reaching Zubi from other devices</h2>
 <p>At first Zubi answers only on your Mac (<code>127.0.0.1</code>), so nothing on your network can
-  reach it by accident. There are four ways to open it up, set under <strong>Settings › Server</strong>:</p>
+  reach it by accident. Connecting another device takes three steps, in this order: choose how it
+  reaches the Mac, set up what that needs, then connect the Mac and the device.</p>
+<p>Whichever you choose, the Mac has to be awake and logged in to answer; with FileVault on, macOS
+  doesn’t log in automatically after a restart. To stop it falling asleep while it serves, switch on
+  <strong>Keep this Mac awake while Zubi serves</strong> under <strong>Settings › General</strong>.</p>
+
+<h3 id="choose">1. Choose how devices reach your Mac</h3>
+<div class="table-scroll">
+<table>
+  <thead><tr><th>When your devices are</th><th>Use</th><th>Encrypted</th><th>You need</th></tr></thead>
+  <tbody>
+    <tr><td>on other networks, or on the move: a Raspberry Pi at home, a MacBook on the road</td>
+      <td><a href="#relay"><strong>A relay</strong></a> (recommended)</td><td>End to end, with each
+      device’s key</td><td>A relay you run: on a Pi at home, behind a Cloudflare Tunnel, or on a free
+      host</td></tr>
+    <tr><td>all on your Tailscale network</td><td><a href="#network-other">Tailscale</a></td>
+      <td>By Tailscale</td><td>Tailscale on the Mac and the devices</td></tr>
+    <tr><td>able to log in to the Mac over SSH</td><td><a href="#network-other">An SSH tunnel</a></td>
+      <td>By SSH</td><td>Remote Login on the Mac</td></tr>
+    <tr><td>only ever on your home network, which you trust</td><td><a href="#network-other">All
+      interfaces</a></td><td>No: plain HTTP</td><td>Nothing</td></tr>
+  </tbody>
+</table>
+</div>
+
+<h3 id="relay">2. Through a relay</h3>
+<p>A relay is where your Mac and your devices meet when they are on different networks. Both connect
+  out to it, so nothing at home or on the Mac has to accept connections from the internet, and the
+  relay copies messages between them. Each session is encrypted end to end between the Mac and the
+  device, with the device’s key: the relay holds no key and sees only which addresses connect, when,
+  and how much they send. Set it up in three steps, in this order.</p>
+
+<h3 id="relay-server">Relay, step 1: run the relay</h3>
+<p>The relay is the <code>zubi</code> command-line client, on a machine that is always on. A
+  Raspberry Pi works well, and can be the device that reads your reminders at the same time.
+  <a href="#cli-install">Install <code>zubi</code></a> there, then pick where its <code>wss://</code>
+  address comes from:</p>
 <dl>
-  <dt>Through a relay, from anywhere</dt>
-  <dd>Zubi connects out to a relay, and devices on other networks reach it there, with each session
-    encrypted end to end with the device’s key: the relay can’t read anything, and nothing on your Mac
-    accepts connections from the internet. See <a href="#relay">Through a relay</a>.</dd>
-  <dt>Keep it local and tunnel to it (the safest)</dt>
+  <dt>Behind a Cloudflare Tunnel: no port forwarding, needs a domain on Cloudflare</dt>
+  <dd>
+    <ol>
+      <li>Run the relay for the tunnel, as a service that starts at boot:
+<pre>zubi relay --behind-tls-proxy --listen 127.0.0.1:8080 --install-service</pre></li>
+      <li>In the Cloudflare dashboard, under your tunnel’s <strong>Public Hostname</strong>, add a
+        hostname such as <code>relay.example.com</code> with service type <strong>HTTP</strong> and URL
+        <code>127.0.0.1:8080</code>. In a <code>cloudflared</code> config file, that is:
+<pre>ingress:
+  - hostname: relay.example.com
+    service: http://127.0.0.1:8080
+  - service: http_status:404</pre></li>
+      <li>Check it from anywhere: <code>curl https://relay.example.com/health</code> answers
+        <code>ok</code>. The relay’s address is <code>wss://relay.example.com</code>.</li>
+    </ol>
+    A quick tunnel (<code>trycloudflare.com</code>) gets a new name on every start, so use a named
+    tunnel.</dd>
+  <dt>On a Pi at home, with a port forwarded on the router</dt>
+  <dd>Forward TCP port 443 on the router to the Pi’s port 8443, then:
+<pre>zubi relay --listen :8443 --install-service
+journalctl -u zubi-relay      <span class="dim"># shows “Relay ready: wss://…”, the relay’s address</span></pre>
+    It gets a Let’s Encrypt certificate for your public IP address and renews it on its own. Your
+    connection needs its own public IPv4 address (not carrier-grade NAT). When your provider changes
+    the address, the relay’s address changes with it; a free DuckDNS name with
+    <code>--domain</code> avoids that.</dd>
+  <dt>On a free hosting service, with no machine at home</dt>
+  <dd>Render’s free web service runs <code>zubi relay --behind-tls-proxy</code> and gives it a
+    <code>wss://….onrender.com</code> address; the
+    <a href="https://github.com/fa-krug/zubi/blob/main/cli/README.md#on-render">settings</a> are in the
+    CLI README. A connected Mac’s pings keep the free service from sleeping.</dd>
+  <dt>On a server with a public address</dt>
+  <dd>A VPS, or Oracle Cloud’s Always Free tier: <code>zubi relay --install-service</code>, as at home
+    but without the router, and the address never changes.</dd>
+</dl>
+<p><code>--install-service</code> keeps the relay running after you log out: it sets up a systemd
+  service with the same flags, asking for <code>sudo</code>, that starts at boot and restarts after a
+  failure. <code>journalctl -u zubi-relay -f</code> follows its log, and
+  <code>zubi relay --uninstall-service</code> removes it. Without a certificate the relay never falls
+  back to unencrypted <code>ws://</code>; only <code>--no-tls</code> serves that. The
+  <a href="https://github.com/fa-krug/zubi/blob/main/cli/README.md#running-a-relay">CLI README</a> has
+  every flag.</p>
+
+<h3 id="relay-mac">Relay, step 2: connect the Mac</h3>
+<ol>
+  <li>On the Mac, open <strong>Settings › Server</strong>. Under <strong>Relay</strong>, turn on
+    <strong>Connect through a relay</strong>.</li>
+  <li>Enter the relay’s address, such as <code>wss://relay.example.com</code>, and click
+    <strong>Apply</strong>.</li>
+  <li>The status turns to <strong>Connected</strong>. The Mac stays connected while the server runs,
+    and reconnects on its own after sleep or a network change.</li>
+</ol>
+
+<h3 id="relay-device">Relay, step 3: pair each device</h3>
+<ol>
+  <li><a href="#cli-install">Install <code>zubi</code></a> on the device.</li>
+  <li>On the Mac, under <strong>Settings › Keys</strong>, add a key for the device, or open an existing
+    one’s menu, and choose <strong>Copy Pairing Code</strong>. The code holds the key, so keep it as
+    secret.</li>
+  <li>On the device:
+<pre>zubi pair -     <span class="dim"># paste the code, then Enter</span>
+zubi lists      <span class="dim"># every command now reaches the Mac through the relay</span></pre>
+    <code>zubi pair</code> checks the code with the Mac through the relay before saving it.</li>
+</ol>
+<p>For other programs on that device, such as a dashboard or a script with <code>curl</code>,
+  <code>zubi tunnel</code> serves Zubi at <code>http://127.0.0.1:8787</code>, each connection through
+  the relay. Requests still need the key, as they would on the Mac. To keep it running:</p>
+<pre>zubi tunnel --install-service</pre>
+
+<h3 id="network-other">2. Or: Tailscale, an SSH tunnel or your home network</h3>
+<p>These are set under <strong>Settings › Server › Network</strong>; click <strong>Apply and
+  Restart</strong> after changing the address or port.</p>
+<dl>
+  <dt>An SSH tunnel</dt>
   <dd>Leave <strong>Bind to</strong> on <em>Localhost only</em>, turn on Remote Login on the Mac, and
     from the other device run <code>ssh -N -L 8787:localhost:8787 you@mac.local</code>. On that device,
     Zubi is now at <code>http://127.0.0.1:8787</code>, and the traffic is encrypted by SSH.</dd>
-  <dt>A specific address, such as Tailscale</dt>
-  <dd>Choose <em>Specific IP</em> and enter the Mac’s address on a private network you trust, for
-    example its Tailscale address. Only devices on that network can reach it, and Tailscale encrypts
-    the traffic.</dd>
+  <dt>Tailscale, or another private network</dt>
+  <dd>Choose <em>Specific IP</em> and enter the Mac’s address on that network, for example its
+    Tailscale address. Only devices on that network can reach it, and Tailscale encrypts the
+    traffic.</dd>
   <dt>All interfaces</dt>
   <dd>Zubi answers on every network the Mac is on, and announces itself there, so
     <code>zubi config discover</code> on another computer finds it without typing an address. Use this
     only on a network you trust: the API is plain HTTP, so the key and your data travel unencrypted.
     macOS may ask whether Zubi may accept incoming connections and use the local network.</dd>
 </dl>
-<p>Click <strong>Apply and Restart</strong> after changing the address or port. The Mac has to be
-  awake and logged in to answer; with FileVault on, macOS doesn’t log in automatically after a
-  restart. To stop it falling asleep while it serves, switch on <strong>Keep this Mac awake while Zubi
-  serves</strong> under <strong>Settings › General</strong>. The display still sleeps as usual.</p>
+<p>Then <a href="#cli-config">tell <code>zubi</code> the address</a> on the device, or call the API
+  there directly.</p>
 
 <h2 id="api">The API</h2>
 <p>Every endpoint under <code>/api</code> needs a key from <strong>Settings › Keys</strong>, sent as a
@@ -351,9 +460,9 @@ zubi health               <span class="dim"># checks that Zubi answers</span></p
     <tr><td><code>zubi watch</code></td><td>A line whenever something changes; <code>--exec</code> runs a command each time</td></tr>
     <tr><td><code>zubi feed CALENDAR</code></td><td>The calendar’s subscription link for calendar apps</td></tr>
     <tr><td><code>zubi mcp</code></td><td>Serve Zubi to AI assistants (see below)</td></tr>
-    <tr><td><code>zubi pair CODE</code></td><td>Reach Zubi through a relay from now on, with a pairing code from <strong>Settings › Keys</strong> (see below)</td></tr>
-    <tr><td><code>zubi tunnel</code></td><td>Serve Zubi through the relay at <code>http://127.0.0.1:8787</code>, for other programs; <code>--listen</code></td></tr>
-    <tr><td><code>zubi relay</code></td><td>Run a relay for a Mac and clients on different networks (see below)</td></tr>
+    <tr><td><code>zubi pair CODE</code></td><td>Reach Zubi through a relay from now on, with a pairing code from <strong>Settings › Keys</strong> (see <a href="#relay-device">Pair each device</a>)</td></tr>
+    <tr><td><code>zubi tunnel</code></td><td>Serve Zubi through the relay at <code>http://127.0.0.1:8787</code>, for other programs; <code>--listen</code>, <code>--install-service</code></td></tr>
+    <tr><td><code>zubi relay</code></td><td>Run a relay for a Mac and devices on different networks; <code>--install-service</code> keeps it running (see <a href="#relay-server">Run the relay</a>)</td></tr>
     <tr><td><code>zubi key</code></td><td>The name and access of the key in use</td></tr>
     <tr><td><code>zubi health</code></td><td>Whether Zubi answers, and with which key</td></tr>
     <tr><td><code>zubi config</code></td><td>The saved address and key (masked)</td></tr>
@@ -416,54 +525,6 @@ zubi reminders add "Call the plumber" --list Errands --due 2026-11-03T09:00 --js
 }</pre>
 <p>In Claude Code: <code>claude mcp add zubi -- zubi mcp</code>, after <code>zubi config</code> is set up.
   The assistant sees which items are writable, and with a Read key it can’t change anything at all.</p>
-
-<h3 id="relay">Through a relay</h3>
-<p>A relay is where a Mac running Zubi and its clients meet when they are on different networks, such
-  as a MacBook on the road and a Raspberry Pi at home. Both connect out to it and it copies messages
-  between them, so neither has to accept connections. Each session is encrypted end to end between
-  the Mac and the device, with the device’s key: the relay holds no key and sees only which addresses
-  connect, when, and how much they send.</p>
-<ol>
-  <li>Run a relay, as below, or use one you already have.</li>
-  <li>On the Mac, under <strong>Settings › Server › Relay</strong>, turn on <strong>Connect through a
-    relay</strong>, enter its <code>wss://</code> address and click <strong>Apply</strong>.</li>
-  <li>Under <strong>Settings › Keys</strong>, choose <strong>Copy Pairing Code</strong> in the device’s
-    key’s menu. The code holds the key, so keep it as secret.</li>
-  <li>On the device, run <code>zubi pair -</code> and paste it. <code>zubi</code> checks it with the Mac
-    through the relay, saves it, and from then on every command goes through the relay.</li>
-</ol>
-<p>For other programs on that device, <code>zubi tunnel</code> serves Zubi at
-  <code>http://127.0.0.1:8787</code>, each connection through the relay. Requests still need the key,
-  as on the Mac.</p>
-
-<h3 id="relay-server">Running a relay</h3>
-<pre>zubi relay
-<span class="dim out">Relay ready: wss://203.0.113.7</span></pre>
-<p>With no flags it finds the network’s public IPv4 address, gets a six-day certificate for it from
-  Let’s Encrypt, serves <code>wss://</code> on port 443 and renews the certificate on its own. Let’s
-  Encrypt checks by connecting to port 443 of that address, so it must be reachable from the internet.
-  When it isn’t, the relay says why and exits: it never falls back to unencrypted <code>ws://</code>.
-  <code>--listen :8443</code> listens elsewhere (forward port 443 to it), <code>--ip</code> or
-  <code>--domain</code> say what to certify, <code>--behind-tls-proxy</code> serves a platform or proxy
-  that provides <code>wss://</code> itself, and only <code>--no-tls</code> serves plain
-  <code>ws://</code>.</p>
-<p>Where to host it, in order of preference:</p>
-<ol>
-  <li><strong>A machine at home, if you can forward a port</strong>, such as the Raspberry Pi itself:
-    free, and nobody else involved. Forward TCP 443 on the router to it and run <code>zubi relay</code>
-    as a service. Your connection needs its own public IPv4 address (not carrier-grade NAT). When your
-    provider changes that address, the relay’s URL changes too; a free DuckDNS name with
-    <code>--domain</code> avoids that.</li>
-  <li><strong>Render’s free web service, if you can’t forward a port.</strong> Render provides
-    <code>wss://</code>, and sees only what any relay sees. A connected Mac’s pings keep the free
-    service from sleeping.</li>
-  <li><strong>A small server with a public address</strong>, such as a VPS or Oracle Cloud’s Always Free
-    tier: run <code>zubi relay</code> as at home, and the address never changes.</li>
-  <li><strong>Your own reverse proxy or Cloudflare Tunnel</strong>, pointed at
-    <code>zubi relay --behind-tls-proxy --listen 127.0.0.1:8080</code>.</li>
-</ol>
-<p>The <a href="https://github.com/fa-krug/zubi/blob/main/cli/README.md#running-a-relay">CLI README</a>
-  has a systemd service file, the Render settings and every flag.</p>
 
 <h2 id="updates">Updates</h2>
 <p>The app checks GitHub for a new release once a day, starting half a minute after launch. When there

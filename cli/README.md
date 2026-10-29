@@ -433,17 +433,156 @@ esac
 
 ## Through a relay
 
-A relay is where a Mac running Zubi and its clients meet when they are on different networks, for
-example a MacBook on the road and a Raspberry Pi at home. Both connect out to the relay, so neither
-needs to accept connections, and the relay copies messages between them. Each session is end-to-end
-encrypted between the Mac and the device, with the device's key: the relay can't read your data, and
-sees only which addresses connect, when, and how much they send.
+A relay is where a Mac running Zubi and its devices meet when they are on different networks, for
+example a MacBook on the road and a Raspberry Pi at home. Both connect out to the relay, so nothing
+has to accept connections from the internet, and the relay copies messages between them. Each
+session is end-to-end encrypted between the Mac and the device, with the device's key: the relay
+can't read your data, and sees only which addresses connect, when, and how much they send.
 
-1. Run a relay, or use one you already have: see [Running a relay](#running-a-relay).
-2. On the Mac, under **Settings › Server › Relay**, turn on **Connect through a relay**, enter the
-   relay's `wss://` address and click **Apply**. The status turns to **Connected**.
-3. Under **Settings › Keys**, open the device's key's menu and choose **Copy Pairing Code**.
-4. On the device:
+Set it up in this order:
+
+1. [Run the relay](#running-a-relay) on a machine that is always on, or use one you already have.
+2. [Connect the Mac](#connecting-the-mac) to it.
+3. [Pair each device](#pairing-a-device) that should reach the Mac through it.
+
+### Running a relay
+
+The relay is `zubi relay`, on a machine that is always on. A Raspberry Pi works well, and can be the
+device that reads your reminders at the same time. What decides the setup is where its `wss://`
+address comes from; pick the first that fits.
+
+#### Behind a Cloudflare Tunnel
+
+No port forwarding and no certificate to manage; you need a domain on Cloudflare and `cloudflared`
+running on the machine.
+
+1. Run the relay for the tunnel, as a service that starts at boot (see
+   [Keeping it running](#keeping-it-running)):
+
+   ```sh
+   zubi relay --behind-tls-proxy --listen 127.0.0.1:8080 --install-service
+   ```
+
+2. In the Cloudflare dashboard, open your tunnel and add a **Public Hostname**, such as
+   `relay.example.com`, with service type **HTTP** and URL `127.0.0.1:8080`. In a `cloudflared`
+   config file, that is:
+
+   ```yaml
+   ingress:
+     - hostname: relay.example.com
+       service: http://127.0.0.1:8080
+     - service: http_status:404
+   ```
+
+3. Check it from anywhere:
+
+   ```sh
+   curl https://relay.example.com/health    # answers: ok
+   ```
+
+The relay's address is `wss://relay.example.com`. Cloudflare passes WebSockets on and tells the
+relay the connection arrived over TLS, which `--behind-tls-proxy` insists on. A quick tunnel
+(`trycloudflare.com`) gets a new name on every start, so use a named tunnel. Any other reverse proxy
+that serves `wss://` works the same way, as long as it passes WebSocket upgrades on and sets
+`X-Forwarded-Proto` (Caddy does).
+
+#### On a machine at home, with a port forwarded
+
+Free, and nobody else involved. Forward TCP port 443 on your router to the machine's port 8443, then:
+
+```sh
+zubi relay --listen :8443 --install-service
+journalctl -u zubi-relay     # shows "Relay ready: wss://203.0.113.7", the relay's address
+```
+
+It finds your network's public IPv4 address, gets a certificate for it from Let's Encrypt and renews
+it (six days at a time) on its own. Let's Encrypt checks by connecting to port 443 of that address,
+so it must reach the machine from the internet; when it can't, the relay says why and exits rather
+than falling back to unencrypted `ws://`. Two things to check:
+
+- Your connection needs its own public IPv4 address, not carrier-grade NAT (common on mobile and some
+  fibre lines). If Let's Encrypt can't connect even with the port forwarded, ask your provider.
+- When your provider changes that address, the relay notices within an hour and gets a new
+  certificate, but the Mac still has the old address. A free [DuckDNS](https://www.duckdns.org)
+  name with `--domain` avoids that.
+
+#### On Render
+
+With no machine at home, Render's free web service runs the relay and serves `wss://` with its own
+certificate. New › Web Service › Public Git Repository `https://github.com/fa-krug/zubi`, then:
+
+| Setting | Value |
+| --- | --- |
+| Language | Go |
+| Root Directory | `cli` |
+| Build Command | `go build -o zubi ./cmd/zubi` |
+| Start Command | `./zubi relay --behind-tls-proxy` |
+| Instance Type | Free |
+| Health Check Path | `/health` (under Advanced) |
+
+The relay's address is the service's URL with `wss://`, such as `wss://zubi-relay.onrender.com`.
+Free services sleep after 15 minutes without traffic; a connected Mac pings every 30 seconds, which
+keeps it awake, and 750 free hours a month cover one service running all month. If it does sleep,
+the first connection takes about a minute. Deploying again picks up a newer `zubi`.
+
+#### On a server with a public address
+
+Any VPS, or Oracle Cloud's Always Free tier: `zubi relay --install-service`, as at home but without
+the router, and the address never changes. Oracle may reclaim an Always Free machine that stays idle
+for a week, and a relay is mostly idle.
+
+Not a good fit: Google Cloud Run cuts every WebSocket after at most an hour, and its free tier needs a
+billing account that a connection open around the clock would soon draw on.
+
+#### Keeping it running
+
+`--install-service` turns the command it is added to into a systemd service (Linux), so the relay
+keeps running after you log out or close the SSH session, starts at boot, and restarts after a
+failure. It records the other flags as they are, asks for `sudo` to write
+`/etc/systemd/system/zubi-relay.service`, and runs the relay as you, so its certificate stays in your
+config directory. Stop a relay still running in a terminal first.
+
+```sh
+systemctl status zubi-relay          # whether it runs
+journalctl -u zubi-relay -f          # its log, as it runs
+zubi relay --uninstall-service       # stop and remove it
+```
+
+To change its flags, run `zubi relay` with the new flags and `--install-service` again. On port 443
+the service gets the one privilege that takes; after a failed certificate it waits 15 minutes before
+trying again, as Let's Encrypt allows five failed checks per address an hour.
+
+#### Flags
+
+| Flag | Does |
+| --- | --- |
+| `--listen ADDR` | Listen here instead of `:443`. Let's Encrypt still connects to port 443, so forward that to this port. |
+| `--ip IP` | Certify this address instead of the one found automatically (IPv6 works too). |
+| `--domain NAME` | Certify a domain name pointing at this machine, such as a free DuckDNS name, so the address survives a new IP from your provider. |
+| `--state DIR` | Where the certificate and Let's Encrypt account key are kept (default `~/.config/zubi/relay`, readable only by you). |
+| `--acme-directory URL` | Another ACME certificate authority, such as Let's Encrypt's staging one for testing. |
+| `--behind-tls-proxy` | Serve plain HTTP on `$PORT` (else `:8080`) for a tunnel, platform or reverse proxy that serves `wss://` itself. WebSockets the proxy didn't receive over TLS are refused. |
+| `--no-tls` | Serve plain `ws://` on `$PORT` (else `:8080`). Only on a network you trust: the content stays end-to-end encrypted, but the metadata doesn't. Zubi and `zubi pair` don't use a `ws://` relay. |
+| `--install-service`, `--uninstall-service` | Set up or remove the systemd service, as above. |
+
+On start the relay prints its address, or behind a proxy what to point the proxy at, and the next
+steps. It stops on Ctrl-C or SIGTERM, exits with 1 when it can't start (no certificate, port taken)
+and with 2 on bad flags. The log goes to stderr: a line when a Mac connects or leaves, with the start
+of its room ID, and certificate renewals. It logs no client addresses.
+
+### Connecting the Mac
+
+1. On the Mac, open Zubi's **Settings › Server**. Under **Relay**, turn on **Connect through a relay**.
+2. Enter the relay's address, such as `wss://relay.example.com`, and click **Apply**.
+3. The status turns to **Connected**. The Mac stays connected while Zubi's server runs, and reconnects
+   on its own after sleep or a network change.
+
+### Pairing a device
+
+1. [Install `zubi`](#install) on the device.
+2. On the Mac, under **Settings › Keys**, add a key for the device, or open an existing key's menu, and
+   choose **Copy Pairing Code**.
+3. On the device:
 
    ```sh
    zubi pair -        # paste the code, then Enter; it stays out of your shell history
@@ -465,114 +604,15 @@ what connects: run `zubi tunnel` on its computer and use `zubi feed --url http:/
 ```sh
 zubi tunnel                        # http://127.0.0.1:8787, until Ctrl-C
 zubi tunnel --listen 127.0.0.1:9000
+zubi tunnel --install-service      # keep it running, as a systemd service
 ```
 
 `zubi tunnel` serves Zubi's API at a local address, each connection a session through the relay, so a
 dashboard, a script with `curl`, or anything else that speaks HTTP reaches the Mac as if it were on
 this computer. Requests still need a key in their `Authorization` header, as they would on the Mac:
-the tunnel only carries them. It listens on loopback unless `--listen` says otherwise. To keep it
-running on Linux, a service like the relay's below works, with `ExecStart=/usr/local/bin/zubi tunnel`
-and `User=` the account that ran `zubi pair` (the pairing is in its config file).
-
-## Running a relay
-
-```sh
-zubi relay
-```
-
-With no flags, `zubi relay` finds this network's public IPv4 address, gets a certificate for it from
-Let's Encrypt, serves `wss://` on port 443, prints the address to use, and renews the certificate
-(which lasts six days) on its own. There is nothing to configure, but Let's Encrypt has to reach port
-443 of that address from the internet: it checks by connecting there. If it can't, the relay says why
-and exits; it never falls back to unencrypted `ws://`.
-
-```text
-Relay ready: wss://203.0.113.7
-```
-
-| Flag | Does |
-| --- | --- |
-| `--listen ADDR` | Listen here instead of `:443`. Let's Encrypt still connects to port 443, so forward that to this port. |
-| `--ip IP` | Certify this address instead of the one found automatically (IPv6 works too). |
-| `--domain NAME` | Certify a domain name pointing at this machine, such as a free DuckDNS name, so the address survives a new IP from your provider. |
-| `--state DIR` | Where the certificate and Let's Encrypt account key are kept (default `~/.config/zubi/relay`, readable only by you). |
-| `--acme-directory URL` | Another ACME certificate authority, such as Let's Encrypt's staging one for testing. |
-| `--behind-tls-proxy` | Serve plain HTTP on `$PORT` (else `:8080`) for a hosting platform or reverse proxy that serves `wss://` itself. WebSockets the proxy didn't receive over TLS are refused. |
-| `--no-tls` | Serve plain `ws://` on `$PORT` (else `:8080`). Only on a network you trust: the content stays end-to-end encrypted, but the metadata doesn't. |
-
-It stops on Ctrl-C or SIGTERM, exits with 1 when it can't start (no certificate, port taken) and
-with 2 on bad flags. The log goes to stderr: a line when a Mac connects or leaves, with the start of
-its room ID, and certificate renewals. It logs no client addresses.
-
-### Where to host it
-
-Pick the first that fits:
-
-1. **A machine at home, if you can forward a port.** A Raspberry Pi or anything else that's always on.
-   Nobody else is involved, and it costs nothing. Forward TCP port 443 on your router to the machine,
-   run `zubi relay` there as a service, and you're done. Two things to check: your connection must
-   have its own public IPv4 address (not carrier-grade NAT, common on mobile and some fibre lines;
-   if Let's Encrypt can't connect even with the port forwarded, ask your provider), and when your
-   provider changes that address, the relay's URL changes with it. The relay notices within an hour
-   and gets a new certificate, but the Mac and clients still have the old address; a free
-   [DuckDNS](https://www.duckdns.org) name with `--domain` avoids that.
-2. **Render's free web service, if you can't forward a port.** Render serves `wss://` with its own
-   certificate, so nothing at home is exposed. It sees the same metadata a relay does, never the
-   content. Free services sleep after 15 minutes without traffic; a connected Mac pings every 30
-   seconds, which keeps it awake, and 750 free hours a month cover one service running all month. If it does sleep,
-   the first connection takes about a minute.
-3. **A small server with a public IP address**, if you have one or want one: any VPS, or Oracle
-   Cloud's Always Free tier. Run `zubi relay` as at home; the address never changes. Oracle may
-   reclaim an Always Free machine that stays idle for a week, and a relay is mostly idle.
-4. **Your own reverse proxy or a Cloudflare Tunnel**, if you already run one with a domain: point it at
-   `zubi relay --behind-tls-proxy --listen 127.0.0.1:8080`. The proxy must pass WebSocket upgrades on
-   and set `X-Forwarded-Proto` (Caddy and `cloudflared` do both).
-
-Not a good fit: Google Cloud Run cuts every WebSocket after at most an hour, and its free tier needs a
-billing account that a connection open around the clock would soon draw on.
-
-#### As a service on Linux
-
-Save as `/etc/systemd/system/zubi-relay.service`, then
-`sudo systemctl enable --now zubi-relay` and `journalctl -u zubi-relay` to see its address:
-
-```ini
-[Unit]
-Description=Zubi relay
-Wants=network-online.target
-After=network-online.target
-
-[Service]
-ExecStart=/usr/local/bin/zubi relay --listen :8443 --state /var/lib/zubi-relay
-DynamicUser=yes
-StateDirectory=zubi-relay
-Restart=on-failure
-# Let's Encrypt allows five failed checks per address an hour, so don't retry faster.
-RestartSec=15min
-
-[Install]
-WantedBy=multi-user.target
-```
-
-This listens on 8443, so the router forwards its port 443 to the machine's 8443 and the relay needs
-no privileges. To listen on 443 directly, use `--listen :443` and add
-`AmbientCapabilities=CAP_NET_BIND_SERVICE` under `[Service]`.
-
-#### On Render
-
-New › Web Service › Public Git Repository `https://github.com/fa-krug/zubi`, then:
-
-| Setting | Value |
-| --- | --- |
-| Language | Go |
-| Root Directory | `cli` |
-| Build Command | `go build -o zubi ./cmd/zubi` |
-| Start Command | `./zubi relay --behind-tls-proxy` |
-| Instance Type | Free |
-| Health Check Path | `/health` (under Advanced) |
-
-The relay's address is the service's URL with `wss://`, such as `wss://zubi-relay.onrender.com`.
-Deploying again picks up a newer `zubi`.
+the tunnel only carries them. It listens on loopback unless `--listen` says otherwise.
+`--install-service` works as for the relay; run it as the user who ran `zubi pair`, as the pairing is
+in that user's config file.
 
 ## The API
 

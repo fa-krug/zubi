@@ -119,8 +119,8 @@ main() {
 	say "Next:"
 	say "  zubi pair -    reach your Mac through a relay: paste a pairing code from Zubi › Settings › Keys"
 	say "  zubi relay     run the relay on this machine, for a Mac and its devices on other networks;"
-	say "                 port 443 must reach it from the internet. Setup, a systemd service and where"
-	say "                 to host one: https://github.com/fa-krug/zubi/blob/main/cli/README.md#running-a-relay"
+	say "                 add --install-service to keep it running. Setup, step by step (Cloudflare"
+	say "                 Tunnel, port forwarding, free hosting): https://fa-krug.github.io/zubi/docs.html#relay"
 	say "  zubi help      every command"
 }
 
