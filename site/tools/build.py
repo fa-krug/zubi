@@ -7,6 +7,7 @@ and is wrapped in the shared header and footer. api.html is generated from the A
 openapi.json, so the published reference is always the one the app serves.
 Standard library only, so the Pages workflow needs nothing installed.
 """
+import hashlib
 import html
 import json
 import pathlib
@@ -53,10 +54,17 @@ FOOTER = f"""<footer class="site-footer">
 </footer>"""
 
 
+def asset(name):
+    """An asset's URL, versioned by its content: Pages lets browsers cache assets for an hour, and a
+    page must never meet the previous release's script or stylesheet."""
+    digest = hashlib.sha256((SITE / "assets" / name).read_bytes()).hexdigest()[:10]
+    return f"assets/{name}?v={digest}"
+
+
 def layout(meta, body):
     title = meta["title"]
     full_title = "Zubi" if title == "Zubi" else f"{title} – Zubi"
-    lang_script = '\n<script src="assets/lang.js"></script>' if meta.get("bilingual") else ""
+    lang_script = f'\n<script src="{asset("lang.js")}"></script>' if meta.get("bilingual") else ""
     # The 404 page is served at whatever path was missing, so it pins its relative links to the site root.
     base = f'\n<base href="{meta["base"]}">' if meta.get("base") else ""
     return f"""<!doctype html>
@@ -70,8 +78,9 @@ def layout(meta, body):
 <meta property="og:title" content="{html.escape(full_title)}">
 <meta property="og:description" content="{html.escape(meta["description"])}">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="assets/styles.css">{lang_script}
-<script src="assets/copy.js" defer></script>
+<link rel="stylesheet" href="{asset("styles.css")}">{lang_script}
+<script src="{asset("copy.js")}" defer></script>
+<script src="{asset("tabs.js")}" defer></script>
 </head>
 <body>
 {header(meta.get("nav"))}

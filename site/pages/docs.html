@@ -3,6 +3,7 @@
 <nav class="toc" aria-label="On this page">
   <p>Documentation</p>
   <ol>
+    <li><a href="#quickstart">Quick start</a></li>
     <li><a href="#overview">How Zubi fits together</a></li>
     <li><a href="#install">Install</a></li>
     <li><a href="#settings">Settings</a></li>
@@ -50,8 +51,105 @@
 <article class="prose">
 <h1>Documentation</h1>
 <p class="lede">Everything about Zubi: the Mac app, the API it serves, and the command-line client that
-  reads it. New here? The <a href="./#start">three-step setup</a> on the home page is all you need to
-  get going.</p>
+  reads it. New here? The quick start below gets a device reading your Mac in a few minutes.</p>
+
+<h2 id="quickstart">Quick start</h2>
+<ol>
+  <li><strong>Install Zubi on your Mac.</strong> <a href="https://github.com/fa-krug/zubi/releases/latest">Download
+    it</a>, unzip it, move it to Applications and open it; its icon appears in the menu bar.</li>
+  <li><strong>Choose what to share.</strong> Click the menu bar icon, then <strong>Settings…</strong>.
+    Under <strong>Reminders</strong>, <strong>Calendars</strong> and <strong>Notes</strong>, click
+    <strong>Grant Access</strong> and set each list, calendar and folder to <strong>Read</strong>, or
+    <strong>Read &amp; Write</strong> where your devices may add and edit. Under
+    <strong>Keys</strong>, add a key for each device.</li>
+  <li><strong>Choose how your device reaches the Mac</strong>, and follow its steps.
+    <a href="#choose">Not sure?</a> On different networks, or on the move, use a relay.</li>
+</ol>
+
+<div class="qs-choices" data-tabs="How your device reaches the Mac">
+  <section id="qs-relay" data-tab="From anywhere: a relay" data-default>
+    <h4 class="tab-title">From anywhere: a relay</h4>
+    <p>For a device on another network, such as a Raspberry Pi at home while the Mac travels. Both
+      connect out to a relay you run, and each session is encrypted end to end with the device’s key.</p>
+    <ol>
+      <li><strong>Run the relay</strong> on a machine that is always on, such as the Pi. Install
+        <code>zubi</code> there:
+<pre>curl -fsSL https://zubi.fa-krug.de/install.sh | sh</pre>
+        Then, behind a Cloudflare Tunnel (no port forwarding):
+<pre>zubi relay --behind-tls-proxy --listen 127.0.0.1:8080 --install-service</pre>
+        and give the tunnel a public hostname, such as <code>relay.example.com</code>, with service
+        <strong>HTTP</strong> and URL <code>127.0.0.1:8080</code>. Its address is
+        <code>wss://relay.example.com</code>. Port forwarding, free hosting and the details:
+        <a href="#relay-server">Run the relay</a>.</li>
+      <li><strong>Connect the Mac:</strong> under <strong>Settings › Server › Relay</strong>, turn on
+        <strong>Connect through a relay</strong>, enter the relay’s <code>wss://</code> address and click
+        <strong>Apply</strong>. The status turns to <strong>Connected</strong>.</li>
+      <li><strong>Pair the device:</strong> under <strong>Settings › Keys</strong>, open the device’s key’s
+        menu and choose <strong>Copy Pairing Code</strong>. On the device, with <code>zubi</code>
+        installed:
+<pre>zubi pair -     <span class="dim"># paste the code, then Enter</span>
+zubi lists</pre></li>
+    </ol>
+  </section>
+
+  <section id="qs-lan" data-tab="Same network">
+    <h4 class="tab-title">Same network</h4>
+    <p>For a device that is always on the same home network as the Mac. The API is plain HTTP, so use
+      it only on a network you trust.</p>
+    <ol>
+      <li><strong>On the Mac:</strong> under <strong>Settings › Server</strong>, set <strong>Bind
+        to</strong> to <strong>All interfaces</strong> and click <strong>Apply and Restart</strong>.</li>
+      <li><strong>On the device:</strong>
+<pre>curl -fsSL https://zubi.fa-krug.de/install.sh | sh
+zubi config discover --save    <span class="dim"># finds the Mac on the network</span>
+zubi config set key -          <span class="dim"># paste the device’s key from Settings › Keys</span>
+zubi lists</pre></li>
+    </ol>
+  </section>
+
+  <section id="qs-tailscale" data-tab="Tailscale">
+    <h4 class="tab-title">Tailscale</h4>
+    <p>For devices already on your Tailscale network, which encrypts the traffic.</p>
+    <ol>
+      <li><strong>On the Mac:</strong> under <strong>Settings › Server</strong>, set <strong>Bind
+        to</strong> to <strong>Specific IP</strong>, enter the Mac’s Tailscale address (100.x.y.z) and
+        click <strong>Apply and Restart</strong>.</li>
+      <li><strong>On the device:</strong>
+<pre>curl -fsSL https://zubi.fa-krug.de/install.sh | sh
+zubi config set url http://<span class="dim">&lt;mac-tailscale-address&gt;</span>:8787
+zubi config set key -          <span class="dim"># paste the device’s key from Settings › Keys</span>
+zubi lists</pre></li>
+    </ol>
+  </section>
+
+  <section id="qs-ssh" data-tab="SSH tunnel">
+    <h4 class="tab-title">SSH tunnel</h4>
+    <p>For a device that can log in to the Mac over SSH. Zubi stays on the Mac only, and SSH
+      encrypts the traffic.</p>
+    <ol>
+      <li><strong>On the Mac:</strong> turn on <strong>Remote Login</strong> in System Settings ›
+        General › Sharing. Leave Zubi’s <strong>Bind to</strong> on <strong>Localhost only</strong>.</li>
+      <li><strong>On the device:</strong> keep the tunnel open in one terminal, and use
+        <code>zubi</code> in another:
+<pre>ssh -N -L 8787:localhost:8787 <span class="dim">you</span>@<span class="dim">mac.local</span></pre>
+<pre>curl -fsSL https://zubi.fa-krug.de/install.sh | sh
+zubi config set key -          <span class="dim"># paste the device’s key from Settings › Keys</span>
+zubi lists</pre></li>
+    </ol>
+  </section>
+
+  <section id="qs-local" data-tab="Only this Mac">
+    <h4 class="tab-title">Only this Mac</h4>
+    <p>For scripts and agents on the Mac itself. Zubi answers there from the start.</p>
+    <ol>
+      <li>Under <strong>Settings › Keys</strong>, click <strong>Copy Command</strong> and run it in
+        Terminal, or call the API with the key:
+<pre>curl -H "Authorization: Bearer <span class="dim">&lt;key&gt;</span>" http://127.0.0.1:8787/api/events</pre></li>
+      <li>For <code>zubi</code> on the Mac, <code>brew install fa-krug/tap/zubi</code>, then
+        <code>zubi config set key -</code>.</li>
+    </ol>
+  </section>
+</div>
 
 <h2 id="overview">How Zubi fits together</h2>
 <p>Zubi is Basque for “bridge”. The app runs on your Mac, works with Reminders, Calendar and Notes
