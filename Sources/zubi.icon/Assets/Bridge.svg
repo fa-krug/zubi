@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+<g fill="#fff">
+<!-- Disc, above the deck -->
+<path d="M140.2 524 A372 372 0 1 1 883.8 524 Z"/>
+<!-- Spandrels, between the deck and the arch -->
+<path d="M144.9 572 L361.5 572 A260 260 0 0 0 252.1 778.1 A372 372 0 0 1 144.9 572 Z"/>
+<path d="M879.1 572 L662.5 572 A260 260 0 0 1 771.9 778.1 A372 372 0 0 0 879.1 572 Z"/>
+<!-- Disc, under the arch -->
+<path d="M303 819.8 A212 212 0 1 1 721 819.8 A372 372 0 0 1 303 819.8 Z"/>
+</g>
+</svg>
