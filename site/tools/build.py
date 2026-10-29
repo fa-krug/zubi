@@ -71,6 +71,7 @@ def layout(meta, body):
 <meta property="og:description" content="{html.escape(meta["description"])}">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="assets/styles.css">{lang_script}
+<script src="assets/copy.js" defer></script>
 </head>
 <body>
 {header(meta.get("nav"))}

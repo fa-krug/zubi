@@ -438,7 +438,7 @@ zubi reminders add "Call the plumber" --list Errands --due 2026-11-03T09:00 --js
 
 <h3 id="relay-server">Running a relay</h3>
 <pre>zubi relay
-<span class="dim">Relay ready: wss://203.0.113.7</span></pre>
+<span class="dim out">Relay ready: wss://203.0.113.7</span></pre>
 <p>With no flags it finds the network’s public IPv4 address, gets a six-day certificate for it from
   Let’s Encrypt, serves <code>wss://</code> on port 443 and renews the certificate on its own. Let’s
   Encrypt checks by connecting to port 443 of that address, so it must be reachable from the internet.

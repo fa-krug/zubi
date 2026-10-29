@@ -115,7 +115,13 @@ main() {
 	*":$dir:"*) ;;
 	*) say "$dir isn't on your PATH; add it, or run $dir/zubi." ;;
 	esac
-	say "Next: zubi pair - (with a pairing code from Zubi › Settings › Keys), or see zubi help."
+	say ""
+	say "Next:"
+	say "  zubi pair -    reach your Mac through a relay: paste a pairing code from Zubi › Settings › Keys"
+	say "  zubi relay     run the relay on this machine, for a Mac and its devices on other networks;"
+	say "                 port 443 must reach it from the internet. Setup, a systemd service and where"
+	say "                 to host one: https://github.com/fa-krug/zubi/blob/main/cli/README.md#running-a-relay"
+	say "  zubi help      every command"
 }
 
 main "$@"
