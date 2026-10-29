@@ -16,7 +16,8 @@ encrypted and the relay only ever copies ciphertext.
 | Settings | status, the first client's code and the relay in `ServerPane` (Connection), clients and their codes in `KeysPane` (Clients) |
 
 How to pair a device is in [cli/README.md](../../cli/README.md#get-started), and how to run and
-host your own relay [there too](../../cli/README.md#your-own-relay).
+host your own relay on the website, [docs.html#relay](https://zubi.fa-krug.de/docs.html#relay)
+(`site/pages/docs.html`), with each scenario.
 
 ## Invariants
 

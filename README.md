@@ -45,8 +45,9 @@ zubi reminders add "Buy milk" --list Groceries
 ## Privacy
 
 Nothing is shared until you choose it, and Zubi never deletes anything. Everything between your Mac
-and a device is encrypted with that device's code; the relay in between only passes it on. You can
-[run your own relay](cli/README.md#your-own-relay), but you don't need to. The
+and a device is encrypted with that device's code; the relay in between only passes it on. Zubi's own
+relay is the default; you can also [run your own](https://zubi.fa-krug.de/docs.html#relay), at home
+or on a server. The
 [privacy policy](https://zubi.fa-krug.de/privacy.html) has the details.
 
 ## Help and feedback

@@ -8,7 +8,18 @@
     <li><a href="#devices">More devices</a></li>
     <li><a href="#troubleshooting">If something doesn’t work</a></li>
     <li><a href="#security">Privacy and security</a></li>
-    <li><a href="#relay">Your own relay</a></li>
+    <li><a href="#relay">Your own relay</a>
+      <ol>
+        <li><a href="#relay-choose">Which one?</a></li>
+        <li><a href="#relay-cloudflare">Cloudflare Tunnel</a></li>
+        <li><a href="#relay-home">At home, port forwarded</a></li>
+        <li><a href="#relay-server">On a server</a></li>
+        <li><a href="#relay-proxy">Behind your web server</a></li>
+        <li><a href="#relay-render">Free hosting</a></li>
+        <li><a href="#relay-switch">Switch to it</a></li>
+        <li><a href="#relay-run">Keep it running</a></li>
+      </ol>
+    </li>
   </ol>
 </nav>
 
@@ -85,12 +96,128 @@ zubi watch</pre>
   <a href="https://github.com/fa-krug/zubi/blob/main/SECURITY.md">security policy</a>.</p>
 
 <h2 id="relay">Your own relay</h2>
-<p>Optional: you don’t need it. Zubi connects through its own relay, <code>relay.fa-krug.de</code>. If
-  you’d rather use your own, run it on a machine that is always on, such as a Raspberry Pi:</p>
-<pre>zubi relay --install-service</pre>
-<p>It needs port 443 reachable from the internet, or a Cloudflare Tunnel; the
-  <a id="own-relay" href="https://github.com/fa-krug/zubi/blob/main/cli/README.md#your-own-relay">relay
-  guide</a> covers both. Then, on your Mac, in Settings › Connection, turn on <strong>Use my own
-  relay</strong>, enter its address, and pair your devices again.</p>
+<p id="own-relay"><strong>Optional.</strong> Out of the box, your Mac and your devices meet at Zubi’s
+  relay, <code>relay.fa-krug.de</code>, and you don’t need anything else. The relay can’t read your data
+  either way, but if you’d rather not depend on it, run your own: it’s the same <code>zubi</code>
+  command, with <code>relay</code>.</p>
+
+<h3 id="relay-choose">Which one?</h3>
+<p>Pick the first that fits. Each ends with a <code>wss://</code> address for your Mac.</p>
+<div class="table-scroll">
+<table>
+  <thead><tr><th>Scenario</th><th>You need</th><th>Good when</th></tr></thead>
+  <tbody>
+    <tr><td><a href="#relay-cloudflare">Cloudflare Tunnel</a></td><td>A machine at home, a domain on
+      Cloudflare</td><td>You can’t or don’t want to change your router</td></tr>
+    <tr><td><a href="#relay-home">At home, port forwarded</a></td><td>A machine at home, access to your
+      router, a public IPv4 address</td><td>You want no third party at all</td></tr>
+    <tr><td><a href="#relay-server">On a server</a></td><td>A rented server (VPS) with a public
+      address</td><td>You have one already</td></tr>
+    <tr><td><a href="#relay-proxy">Behind your web server</a></td><td>A server already running Caddy or
+      nginx with HTTPS</td><td>You host other sites there</td></tr>
+    <tr><td><a href="#relay-render">Free hosting</a></td><td>A free Render account</td><td>You have no
+      machine that is always on</td></tr>
+  </tbody>
+</table>
+</div>
+<p>A machine at home can be a Raspberry Pi, even the one that shows your reminders; the relay needs
+  almost nothing. Install <code>zubi</code> on it first:</p>
+<pre>curl -fsSL https://zubi.fa-krug.de/install.sh | sh</pre>
+
+<h3 id="relay-cloudflare">Cloudflare Tunnel</h3>
+<p>No router changes, and your home address stays hidden. You need a domain on Cloudflare and a
+  tunnel with <code>cloudflared</code> running on the machine.</p>
+<ol>
+  <li>Run the relay where the tunnel can reach it:
+<pre>zubi relay --behind-tls-proxy --listen 127.0.0.1:8080 --install-service</pre></li>
+  <li>In the Cloudflare dashboard, open your tunnel and add a public hostname, such as
+    <code>relay.example.com</code>: service type <strong>HTTP</strong>, URL
+    <code>127.0.0.1:8080</code>. Write <code>127.0.0.1</code>, not <code>localhost</code>, which may reach
+    a different program.</li>
+  <li>Check it: <code>https://relay.example.com/health</code> answers <code>ok</code>.</li>
+</ol>
+<p>Your relay’s address: <code>wss://relay.example.com</code>.</p>
+
+<h3 id="relay-home">At home, port forwarded</h3>
+<p>Nobody else involved: the relay gets its own certificate from Let’s Encrypt for your public IP
+  address and renews it by itself.</p>
+<ol>
+  <li>On your router, forward TCP port 443 to port 443 of the machine.</li>
+  <li>Run the relay:
+<pre>zubi relay --install-service
+journalctl -u zubi-relay        <span class="dim out"># shows: Relay ready: wss://203.0.113.7</span></pre></li>
+</ol>
+<p>Your relay’s address is the one it shows. Two things to know: your internet connection needs its own
+  public IPv4 address (some mobile and fibre connections share one; ask your provider), and if your
+  address changes, a free <a href="https://www.duckdns.org">DuckDNS</a> name keeps it stable: add
+  <code>--domain yourname.duckdns.org</code>, and the address becomes
+  <code>wss://yourname.duckdns.org</code>.</p>
+
+<h3 id="relay-server">On a server</h3>
+<p>The simplest, if you rent a server (any VPS, or Oracle Cloud’s free tier) with a public address and
+  port 443 free:</p>
+<pre>zubi relay --install-service
+journalctl -u zubi-relay        <span class="dim out"># shows the relay's address</span></pre>
+<p>It certifies the server’s IP address by itself. With a domain pointing at the server, add
+  <code>--domain relay.example.com</code> for <code>wss://relay.example.com</code>.</p>
+
+<h3 id="relay-proxy">Behind your web server</h3>
+<p>If Caddy or nginx already serves HTTPS on the server, let it pass a hostname on to the relay:</p>
+<pre>zubi relay --behind-tls-proxy --listen 127.0.0.1:8080 --install-service</pre>
+<p>For Caddy:</p>
+<pre>relay.example.com {
+    reverse_proxy 127.0.0.1:8080
+}</pre>
+<p>For nginx, inside the <code>server</code> block for that hostname:</p>
+<pre>location / {
+    proxy_pass http://127.0.0.1:8080;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+}</pre>
+<p>Your relay’s address: <code>wss://relay.example.com</code>.</p>
+
+<h3 id="relay-render">Free hosting</h3>
+<p>No machine of your own: <a href="https://render.com">Render</a>’s free web service runs the relay.
+  Choose <strong>New › Web Service</strong>, public Git repository
+  <code>https://github.com/fa-krug/zubi</code>, and:</p>
+<div class="table-scroll">
+<table>
+  <thead><tr><th>Setting</th><th>Value</th></tr></thead>
+  <tbody>
+    <tr><td>Language</td><td>Go</td></tr>
+    <tr><td>Root Directory</td><td><code>cli</code></td></tr>
+    <tr><td>Build Command</td><td><code>go build -o zubi ./cmd/zubi</code></td></tr>
+    <tr><td>Start Command</td><td><code>./zubi relay --behind-tls-proxy</code></td></tr>
+    <tr><td>Instance Type</td><td>Free</td></tr>
+    <tr><td>Health Check Path (under Advanced)</td><td><code>/health</code></td></tr>
+  </tbody>
+</table>
+</div>
+<p>Your relay’s address is the service’s URL with <code>wss://</code>, such as
+  <code>wss://zubi-relay.onrender.com</code>. Free services sleep when idle; your connected Mac keeps
+  it awake. Deploy again to get a newer version.</p>
+
+<h3 id="relay-switch">Switch to it</h3>
+<ol>
+  <li>On your Mac, in Zubi’s Settings › <strong>Connection</strong>, turn on <strong>Use my own
+    relay</strong>, enter your relay’s <code>wss://</code> address and click <strong>Apply</strong>. The
+    dot turns green once the Mac is connected; if not, the message under it says why.</li>
+  <li>Pair each device again, since a pairing code names its relay: copy the code from Zubi’s menu, and
+    on the device run <code>zubi pair -</code> and paste it.</li>
+</ol>
+<p>To go back, turn <strong>Use my own relay</strong> off and pair again.</p>
+
+<h3 id="relay-run">Keep it running</h3>
+<p><code>--install-service</code> runs the relay in the background on Linux, starts it at boot and
+  restarts it after a failure. To change its options, run the command again with the new ones.</p>
+<pre>systemctl status zubi-relay         <span class="dim out"># is it running?</span>
+journalctl -u zubi-relay -f         <span class="dim out"># what it does</span>
+sudo systemctl restart zubi-relay   <span class="dim out"># after updating zubi</span>
+zubi relay --uninstall-service      <span class="dim out"># remove it</span></pre>
+<p>The relay keeps no data. It logs when a Mac connects or leaves, never the addresses of your
+  devices.</p>
 </article>
 </div>

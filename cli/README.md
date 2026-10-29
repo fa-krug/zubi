@@ -94,36 +94,24 @@ removes the background service.
 
 ## Your own relay
 
-You don't need this: Zubi connects through its own relay, `relay.fa-krug.de`. If you'd rather run
-your own, pick one of these, on a machine that is always on, such as a Raspberry Pi.
+Optional: Zubi connects through its own relay, `relay.fa-krug.de`, out of the box. To run your own,
+`zubi relay` is all it takes, on a machine that is always on. The
+[relay guide](https://zubi.fa-krug.de/docs.html#relay) walks through each scenario: a Cloudflare
+Tunnel, a port forwarded at home, a server, behind Caddy or nginx, or free hosting on Render.
 
-**With a Cloudflare Tunnel** (no router changes; needs a domain on Cloudflare):
+The two most common, on a Raspberry Pi at home:
 
 ```sh
+# Behind a Cloudflare Tunnel (hostname → HTTP, 127.0.0.1:8080)
 zubi relay --behind-tls-proxy --listen 127.0.0.1:8080 --install-service
+
+# With the router's port 443 forwarded to this machine
+zubi relay --install-service
 ```
 
-In the Cloudflare dashboard, give your tunnel a public hostname such as `relay.example.com`, type
-**HTTP**, URL `127.0.0.1:8080` (not `localhost`). `https://relay.example.com/health` then answers `ok`,
-and the relay's address is `wss://relay.example.com`.
-
-**With a port forwarded:** forward TCP port 443 on your router to port 8443 on the machine, then:
-
-```sh
-zubi relay --listen :8443 --install-service
-journalctl -u zubi-relay      # shows the relay's address
-```
-
-It gets and renews its certificate by itself. This needs a public IPv4 address from your internet
-provider.
-
-Then, on your Mac, in Zubi's Settings › Connection, turn on **Use my own relay**, enter the address,
-click **Apply**, and pair your devices again.
-
-`--install-service` keeps the relay running and starts it at boot (Linux). `systemctl status
-zubi-relay` shows whether it runs; `zubi relay --uninstall-service` removes it. `zubi help` lists
-the other options (a domain instead of an IP address, another port, plain HTTP behind any reverse
-proxy).
+Then, on your Mac, in Zubi's Settings › Connection, turn on **Use my own relay**, enter its `wss://`
+address, click **Apply**, and pair your devices again (`zubi pair -`). `zubi help` lists all of the
+relay's options.
 
 ## Development
 
