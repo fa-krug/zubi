@@ -51,7 +51,7 @@ func runStatus(stdin io.Reader, stdout, stderr io.Writer) int {
 	}
 	if cfg.Relay == nil {
 		fmt.Fprint(stdout, "This computer isn't paired with a Mac yet.\n"+
-			"On your Mac, open Zubi › Settings › Clients, copy a pairing code, and paste it here.\n\n"+
+			"On your Mac, click Zubi's menu bar icon › Copy Pairing Code, and paste it here.\n\n"+
 			"Pairing code: ")
 		code, err := readCode(stdin)
 		fmt.Fprintln(stdout)

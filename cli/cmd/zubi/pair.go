@@ -58,7 +58,7 @@ func readCode(stdin io.Reader) (string, error) {
 
 func runPair(args []string, g globals, stdin io.Reader, stdout, stderr io.Writer) int {
 	if len(args) != 1 {
-		fmt.Fprintln(stderr, "zubi pair: give the pairing code from Zubi › Settings › Clients, or - to read it from stdin")
+		fmt.Fprintln(stderr, "zubi pair: give the pairing code from Zubi's menu bar icon › Copy Pairing Code, or - to read it from stdin")
 		return exitUsage
 	}
 	code := args[0]

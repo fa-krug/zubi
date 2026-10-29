@@ -624,7 +624,7 @@ func (s *mcpServer) call(ctx context.Context, tool mcpTool, rawArgs json.RawMess
 	}
 	if s.client.APIKey == "" && !cmd.Public {
 		return textResult("This computer isn't paired with the user's Mac yet. The user should run `zubi` in a terminal "+
-			"here and paste a pairing code from Zubi › Settings › Clients on the Mac.", true)
+			"here and paste the code from Zubi's menu bar icon › Copy Pairing Code on the Mac.", true)
 	}
 	body, err := s.client.Raw(ctx, cmd, req)
 	if err != nil {

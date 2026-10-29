@@ -137,6 +137,30 @@ checks). See [cli/README.md](cli/README.md) for its behaviour and exit codes. Th
 in `internal/relay` and `internal/websocket`; its protocol and rules are in
 [docs/features/relay.md](docs/features/relay.md).
 
+Every request the client can make is one entry in `apiCommands` (`cmd/zubi/commands.go`): its method,
+path, query parameters, request body type, response type and media type. The protocol inside a session
+is HTTP, described by `Packages/ZubiAPI/Sources/ZubiAPI/Resources/openapi.json`; the tests read it and
+fail when an entry, a path or query parameter, a request body struct (field names, required vs.
+optional, which fields may be `null`) or a response struct disagrees with it, or when it gains an
+operation or a query parameter no command sends. They also validate the fixtures in
+`cmd/zubi/testdata/` against it, and run every command against a fake Zubi that checks each request's
+method, path, parameters, body and `Accept` header against it and answers with those fixtures.
+
+The MCP tools (`mcpTools` in `cmd/zubi/mcp.go`) each name an entry in `apiCommands` and send
+through the same client. The tests check that each tool's arguments are exactly its operation's
+parameters and body properties (names, types, enums, bounds, required), that every operation an
+assistant could use has a tool, and drive every tool through `zubi mcp` against the fake.
+
+The relay (`internal/relay`, `internal/websocket`) has its own tests: WebSocket framing, the relay
+protocol from registration to a closed session, limits and STUN. Sessions through it
+(`internal/noise`, `internal/tunnel`) are tested against vectors from an independent Noise
+implementation, shared with the app's tests, and end to end: pairing, `zubi serve`, commands and `zubi watch` run against the fake Zubi through a real relay and a Go stand-in for the Mac
+(`tunnel.Host`). Its certificate tests need Pebble,
+Let's Encrypt's test CA, and are skipped without it:
+`ZUBI_PEBBLE=$(go env GOPATH)/bin/pebble go test ./internal/relay/` after
+`go install github.com/letsencrypt/pebble/v2/cmd/pebble@v2.10.1`. The protocol and the relay's rules
+are in [docs/features/relay.md](docs/features/relay.md).
+
 ## Work on the website
 
 ```sh

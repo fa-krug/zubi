@@ -1,390 +1,96 @@
-<!-- {"title": "Documentation", "description": "How to set up Zubi on your Mac, pair your devices with the zubi client, choose what to share, and run your own relay.", "nav": "docs"} -->
+<!-- {"title": "Documentation", "description": "Set up Zubi on your Mac, pair a device, and use your reminders, calendars and notes from it.", "nav": "docs"} -->
 <div class="wrap page">
 <nav class="toc" aria-label="On this page">
   <p>Documentation</p>
   <ol>
-    <li><a href="#quickstart">Quick start</a></li>
-    <li><a href="#overview">How Zubi fits together</a></li>
-    <li><a href="#install">Install</a></li>
-    <li><a href="#settings">Settings</a></li>
-    <li><a href="#sharing">Choosing what to share</a>
-      <ol>
-        <li><a href="#reminders">Reminders</a></li>
-        <li><a href="#calendars">Calendars</a></li>
-        <li><a href="#notes">Notes</a></li>
-      </ol>
-    </li>
-    <li><a href="#clients">Clients</a></li>
-    <li><a href="#activity">Activity</a></li>
-    <li><a href="#cli">The client</a>
-      <ol>
-        <li><a href="#status">Status and pairing</a></li>
-        <li><a href="#cli-commands">Commands</a></li>
-        <li><a href="#agents">For scripts</a></li>
-        <li><a href="#mcp">Claude Desktop and MCP</a></li>
-      </ol>
-    </li>
-    <li><a href="#relay">The relay</a>
-      <ol>
-        <li><a href="#own-relay">Your own relay</a></li>
-      </ol>
-    </li>
-    <li><a href="#updates">Updates</a></li>
-    <li><a href="#security">Security</a></li>
-    <li><a href="#troubleshooting">Troubleshooting</a></li>
-    <li><a href="#source">Source code</a></li>
+    <li><a href="#start">Get started</a></li>
+    <li><a href="#use">Use it</a></li>
+    <li><a href="#devices">More devices</a></li>
+    <li><a href="#troubleshooting">If something doesn’t work</a></li>
+    <li><a href="#security">Privacy and security</a></li>
+    <li><a href="#relay">Your own relay</a></li>
   </ol>
 </nav>
 
 <article class="prose">
 <h1>Documentation</h1>
-<p class="lede">Zubi has two parts: the app on your Mac, which shares the Reminders lists, calendars
-  and Notes folders you choose, and <code>zubi</code>, the client on your other devices. They meet at a
-  relay, end-to-end encrypted, wherever each one is.</p>
+<p class="lede">Zubi on your Mac shares the reminders, calendars and notes you choose. The
+  <code>zubi</code> client on your other devices uses them, from anywhere.</p>
 
-<h2 id="quickstart">Quick start</h2>
+<h2 id="start">Get started</h2>
 <ol>
-  <li><strong>Install Zubi on your Mac.</strong> <a href="https://github.com/fa-krug/zubi/releases/latest">Download
-    it</a>, unzip it, move it to Applications and open it. Settings opens on
-    <strong>Connection</strong>, which turns green once Zubi is connected. Zubi starts with your Mac
-    from then on.</li>
-  <li><strong>Choose what to share.</strong> Under <strong>Reminders</strong>, <strong>Calendars</strong>
-    and <strong>Notes</strong>, click <strong>Grant Access</strong> and set each list, calendar and folder
-    to <strong>Read</strong>, or <strong>Read &amp; Write</strong> where your devices may add and edit.</li>
-  <li><strong>Pair a device.</strong> On the device, install the client and run it:
+  <li><strong>On your Mac:</strong> <a href="https://github.com/fa-krug/zubi/releases/latest">download
+    Zubi</a>, move it to Applications and open it. It connects on its own (its menu shows a green dot)
+    and starts with your Mac from now on. (macOS 14 or later.)</li>
+  <li><strong>Choose what to share:</strong> in Zubi’s Settings, under <strong>Reminders</strong>,
+    <strong>Calendars</strong> and <strong>Notes</strong>, click <strong>Grant Access</strong>, then set
+    what you want to <strong>Read</strong>, or <strong>Read &amp; Write</strong> if your devices may
+    also add and edit. Everything else stays private.</li>
+  <li id="install"><strong>On your device:</strong> install the client and run it.
 <pre>curl -fsSL https://zubi.fa-krug.de/install.sh | sh
 zubi</pre>
-    It asks for a pairing code: on the Mac, choose <strong>Copy Pairing Code</strong> in Zubi’s menu,
-    or copy it under <strong>Settings › Connection</strong>, and paste it. The client pairs, sets up the
-    service that keeps it connected, and shows its status. Then try <code>zubi reminders</code>.</li>
+    Paste the pairing code from Zubi’s menu bar icon › <strong>Copy Pairing Code</strong>. Done: it
+    stays connected from now on.</li>
 </ol>
-<p>For more devices, add a client for each under <strong>Settings › Clients</strong> and pair it with
-  that client’s code.</p>
+<p>The install line works on Linux, a Raspberry Pi and macOS. Alternatively:
+  <code>brew install fa-krug/tap/zubi</code>, or on Windows with
+  <a href="https://scoop.sh">Scoop</a>: <code>scoop bucket add fa-krug
+  https://github.com/fa-krug/scoop-bucket</code>, then <code>scoop install fa-krug/zubi</code>.</p>
 
-<h2 id="overview">How Zubi fits together</h2>
-<div class="components">
-  <div class="lead">
-    <h3>The Mac app</h3>
-    <p>Runs in the menu bar and starts with your Mac. It works with Reminders, Calendar and Notes with
-      your permission, and answers your devices for the parts you chose to share. It accepts no
-      connections from the internet: it connects out to the relay.</p>
-  </div>
-  <div>
-    <h3>The client</h3>
-    <p><code>zubi</code>, for Linux (a Raspberry Pi too), macOS and Windows. Paired once with a code, it
-      reads and changes what you shared, from a terminal, a script or an AI assistant.</p>
-  </div>
-  <div>
-    <h3>The relay</h3>
-    <p>Where the Mac and its clients meet, wherever each one is. It only passes encrypted messages on.
-      Zubi’s own relay is the default, and you can run your own.</p>
-  </div>
-</div>
-
-<h2 id="install">Install</h2>
-<h3 id="mac-install">On your Mac: the app</h3>
-<p><a href="https://github.com/fa-krug/zubi/releases/latest">Download the latest release</a>, unzip
-  it and move <strong>Zubi</strong> to Applications. It needs macOS 14 or later, and is signed and
-  notarized. Open it: it adds itself to your login items, so it starts with your Mac, and connects.
-  macOS asks for access to Reminders, Calendar and Notes when you grant it in Settings.</p>
-<h3 id="client-install">On a device: the client</h3>
-<p>On Linux, a Raspberry Pi (including 32-bit Raspberry Pi OS) or a Mac, in one line:</p>
-<pre>curl -fsSL https://zubi.fa-krug.de/install.sh | sh</pre>
-<p>It picks the build for the machine, checks it against the release’s checksums and installs it in
-  <code>/usr/local/bin</code>, asking for <code>sudo</code> only if that needs it; run it again to
-  update. <code>ZUBI_INSTALL_DIR=$HOME/.local/bin</code> installs without <code>sudo</code>. The
-  Raspberry Pi Zero and Pi 1 have no build.</p>
-<p>On macOS and Linux, also with <a href="https://brew.sh">Homebrew</a>:</p>
-<pre>brew install fa-krug/tap/zubi</pre>
-<p>On Windows, with <a href="https://scoop.sh">Scoop</a>:</p>
-<pre>scoop bucket add fa-krug https://github.com/fa-krug/scoop-bucket
-scoop install fa-krug/zubi</pre>
-<p>Both keep it up to date (<code>brew upgrade</code>, <code>scoop update zubi</code>). Otherwise, or for
-32-bit Raspberry Pi OS, download the archive for your system from the
-  <a href="https://github.com/fa-krug/zubi/releases?q=cli&amp;expanded=true">CLI releases</a> (tagged
-  <code>cli/v…</code>), unpack it, and put <code>zubi</code> on your <code>PATH</code>:</p>
-<div class="table-scroll">
-<table>
-  <thead><tr><th>System</th><th>Archive</th></tr></thead>
-  <tbody>
-    <tr><td>macOS, Apple silicon and Intel</td><td><code>zubi_&lt;version&gt;_darwin_universal.tar.gz</code></td></tr>
-    <tr><td>Linux, x86-64</td><td><code>zubi_&lt;version&gt;_linux_amd64.tar.gz</code></td></tr>
-    <tr><td>Linux, 64-bit ARM (Raspberry Pi 3, 4, 5 on a 64-bit OS)</td><td><code>zubi_&lt;version&gt;_linux_arm64.tar.gz</code></td></tr>
-    <tr><td>Linux, 32-bit ARM (Raspberry Pi OS 32-bit)</td><td><code>zubi_&lt;version&gt;_linux_armv7.tar.gz</code></td></tr>
-    <tr><td>Windows, x86-64</td><td><code>zubi_&lt;version&gt;_windows_amd64.zip</code></td></tr>
-    <tr><td>Windows, ARM</td><td><code>zubi_&lt;version&gt;_windows_arm64.zip</code></td></tr>
-  </tbody>
-</table>
-</div>
-<pre>tar -xzf zubi_<span class="dim">&lt;version&gt;</span>_linux_arm64.tar.gz
-sudo install zubi_<span class="dim">&lt;version&gt;</span>_linux_arm64/zubi /usr/local/bin/</pre>
-<p>With Go 1.26 or later you can also run
-  <code>go install github.com/fa-krug/zubi/cli/cmd/zubi@latest</code>.</p>
-
-<h2 id="settings">Settings</h2>
-<p>Open Settings from the menu bar icon. Each tab covers one thing:</p>
-<div class="table-scroll">
-<table>
-  <thead><tr><th>Tab</th><th>What it does</th></tr></thead>
-  <tbody>
-    <tr><td><strong>General</strong></td><td>Launch at login, keeping the Mac awake while Zubi runs,
-      update checks, the installed version, and Check for Updates.</td></tr>
-    <tr><td><strong>Connection</strong></td><td>Whether your devices can reach this Mac, the first
-      pairing code, and the relay: Zubi’s, or your own.</td></tr>
-    <tr><td><strong>Clients</strong></td><td>One pairing code per device: add, copy, rename, renew or
-      remove them.</td></tr>
-    <tr><td><strong>Activity</strong></td><td>Everything created or edited by your devices: when, by
-      which client, and where.</td></tr>
-    <tr><td><strong>Reminders</strong></td><td>Access to Reminders, and which lists to share, grouped by
-      account in their own colours.</td></tr>
-    <tr><td><strong>Calendars</strong></td><td>Access to Calendar, and which calendars to share.</td></tr>
-    <tr><td><strong>Notes</strong></td><td>Access to Notes, and which folders to share, shown as the
-      same tree as in Notes.</td></tr>
-    <tr><td><strong>About</strong></td><td>Version, links to the source and release notes, and the
-      acknowledgements.</td></tr>
-  </tbody>
-</table>
-</div>
-
-<h2 id="sharing">Choosing what to share</h2>
-<p>Each list, calendar and folder has its own setting, chosen next to it in Settings:</p>
-<div class="table-scroll">
-<table>
-  <thead><tr><th>Setting</th><th>Reading</th><th>Adding and editing</th></tr></thead>
-  <tbody>
-    <tr><td><strong>Off</strong> (the default)</td><td>Answers 404, as if it didn’t exist</td><td>Answers 404</td></tr>
-    <tr><td><strong>Read</strong></td><td>Yes</td><td>Refused with 403</td></tr>
-    <tr><td><strong>Read &amp; Write</strong></td><td>Yes</td><td>Yes</td></tr>
-  </tbody>
-</table>
-</div>
-<p>Moving a reminder or event to another list or calendar needs that one set to Read &amp; Write too.
-  Zubi never deletes anything, whatever the setting. Some calendars can’t be written by anyone, such
-  as subscribed and holiday calendars, so Read &amp; Write isn’t offered for them. Every list, calendar
-  and folder says whether it is writable: <code>zubi lists</code>, <code>zubi calendars</code> and
-  <code>zubi folders</code> mark the read-only ones.</p>
-<p>Changes apply to the next request; there is nothing to restart. If you create a list, calendar or
-  folder while Settings is open, click <strong>Reload</strong> at the bottom of the tab.</p>
-
-<h3 id="reminders">Reminders</h3>
-<p>Under <strong>Settings › Reminders</strong>, click <strong>Grant Access</strong> and allow full
-  access in the dialog. Then choose Read or Read &amp; Write for each list. Your devices get each
-  reminder’s title, notes, list, priority, due date and whether it is done; you can ask for one list,
-  for what is due today, or for what is overdue. In a writable list it can add reminders, and change
-  their title, notes, due date and priority, complete or reopen them, and move them to another
-  writable list.</p>
-
-<h3 id="calendars">Calendars</h3>
-<p>Under <strong>Settings › Calendars</strong>, grant access the same way and choose a setting for each
-  calendar. Events come back with title, times, location, notes and URL. A recurring event comes back
-  once per occurrence, and one request covers at most a year. In a writable calendar Zubi can add
-  events and edit them; for a recurring event, an edit changes only the one occurrence you name, never
-  the whole series.</p>
-
-<h3 id="notes">Notes</h3>
-<p>Apple Notes has no public interface, so Zubi reads it by scripting Notes.app. The first time, macOS
-  asks whether Zubi may control Notes; allow it. Some things follow from that:</p>
-<ul>
-  <li>Notes.app is opened in the background when Zubi needs it.</li>
-  <li>Reading is slower than Reminders or Calendar: a large folder can take a second or two.</li>
-  <li>Locked notes stay locked. Zubi returns their title and dates, never their text, and never
-    changes them.</li>
-  <li>In a writable folder Zubi can add notes, and change a note’s title or replace its text, given as
-    plain text or as HTML.</li>
-  <li>A note’s ID is a long <code>x-coredata://</code> address. Pass it as the <code>id</code> query
-    parameter, URL-encoded; the command-line client does this for you.</li>
-</ul>
-
-<h2 id="clients">Clients</h2>
-<p>Each device has its own pairing code, under <strong>Settings › Clients</strong>. Zubi starts with
-  one, “Default”, whose code <strong>Settings › Connection</strong> and the menu show. Click
-  <strong>Add Client…</strong> for another device: name it after the device, so you can tell them apart
-  in Activity, and pair the device with its code.</p>
-<p>A code is as secret as a password: it lets a device read what you share, and change it where you
-  allowed that. In a client’s menu, <strong>New Code…</strong> replaces its code, and
-  <strong>Remove…</strong> removes it; either way the device can’t reach this Mac any more until it
-  pairs again. Every client may change the same things: what is set to Read &amp; Write.</p>
-
-<h2 id="activity">Activity</h2>
-<p><strong>Settings › Activity</strong> lists the last 500 things your devices created or edited,
-  newest first: when, which client did it, what changed, and in which list, calendar or folder. It is
-  kept on your Mac only. <strong>Clear</strong> empties it.</p>
-
-<h2 id="cli">The client</h2>
-<h3 id="status">Status and pairing</h3>
-<p>Run <code>zubi</code> on its own for the connection’s status:</p>
+<h2 id="use">Use it</h2>
+<p><code>zubi</code> on its own shows whether everything is connected:</p>
 <pre>zubi
-<span class="dim out">✓ Paired as "Kitchen Pi", through wss://relay.fa-krug.de
+<span class="dim out">✓ Paired as "Default", through wss://relay.fa-krug.de
 ✓ The zubi-client service keeps the connection
 ✓ Your Mac answers</span></pre>
-<p>The first time, it asks for a pairing code, pairs with your Mac, and on Linux sets up the
-  <code>zubi-client</code> service, asking for <code>sudo</code>: it keeps the connection, also after you
-  log out, and every command and <code>zubi mcp</code> go through it. Elsewhere commands connect each
-  time, which works just as well.</p>
-<p><code>zubi pair -</code> pairs again with a new code, for another client or another relay;
-  <code>zubi unpair</code> forgets the pairing and removes the service.</p>
+<p>Then:</p>
+<pre>zubi reminders
+zubi events
+zubi notes
+zubi reminders add "Buy milk" --list Groceries
+zubi watch</pre>
+<p><code>zubi watch</code> prints a line whenever something changes, handy for a display.
+  <code>zubi help</code> lists every command. For scripts, add <code>--json</code>.</p>
+<p><strong>AI assistants:</strong> in Claude Code, run <code>claude mcp add zubi -- zubi mcp</code>. In
+  Claude Desktop, add this to <code>claude_desktop_config.json</code>:</p>
+<pre>{ "mcpServers": { "zubi": { "command": "/usr/local/bin/zubi", "args": ["mcp"] } } }</pre>
 
-<h3 id="cli-commands">Commands</h3>
-<div class="table-scroll">
-<table>
-  <thead><tr><th>Command</th><th>Does</th></tr></thead>
-  <tbody>
-    <tr><td><code>zubi lists</code></td><td>Shared reminder lists</td></tr>
-    <tr><td><code>zubi reminders</code></td><td>Reminders; <code>--list</code>, <code>--due today|overdue</code>, <code>--completed</code></td></tr>
-    <tr><td><code>zubi calendars</code></td><td>Shared calendars</td></tr>
-    <tr><td><code>zubi events</code></td><td>Events grouped by day; <code>--from</code>, <code>--to</code>, <code>--calendar</code></td></tr>
-    <tr><td><code>zubi folders</code></td><td>Shared Notes folders as a tree</td></tr>
-    <tr><td><code>zubi notes</code></td><td>Notes, newest first; <code>--folder</code>, <code>--limit</code></td></tr>
-    <tr><td><code>zubi note ID</code></td><td>One note’s text; <code>--html</code> for its HTML</td></tr>
-    <tr><td><code>zubi reminders add TITLE</code></td><td>Add a reminder; <code>--list</code>, <code>--due</code>, <code>--notes</code>, <code>--priority</code></td></tr>
-    <tr><td><code>zubi reminders edit ID</code></td><td>Change a reminder; <code>--title</code>, <code>--due</code> or <code>--clear-due</code>, <code>--done</code>, <code>--list</code> to move it, and more</td></tr>
-    <tr><td><code>zubi reminders done ID</code></td><td>Tick a reminder off</td></tr>
-    <tr><td><code>zubi events add TITLE</code></td><td>Add an event; <code>--calendar</code>, <code>--start</code>, <code>--end</code>, <code>--all-day</code>, <code>--location</code>, <code>--notes</code>, <code>--link</code></td></tr>
-    <tr><td><code>zubi events edit ID</code></td><td>Change an event, or one occurrence of a recurring one with <code>--occurrence</code></td></tr>
-    <tr><td><code>zubi notes add TITLE</code></td><td>Add a note; <code>--folder</code>, and <code>--text</code> or <code>--html</code> (<code>-</code> reads standard input)</td></tr>
-    <tr><td><code>zubi note edit ID</code></td><td>Change a note’s title or replace its text</td></tr>
-    <tr><td><code>zubi watch</code></td><td>A line whenever something changes; <code>--exec</code> runs a command each time</td></tr>
-    <tr><td><code>zubi mcp</code></td><td>Serve Zubi to AI assistants (see below)</td></tr>
-    <tr><td><code>zubi pair CODE</code>, <code>zubi unpair</code></td><td>Pair again, or forget the pairing</td></tr>
-    <tr><td><code>zubi relay</code></td><td>Run your own relay (see <a href="#own-relay">Your own relay</a>)</td></tr>
-  </tbody>
-</table>
-</div>
-<p><code>--search</code> (or <code>-q</code>) on <code>reminders</code>, <code>events</code> and
-  <code>notes</code> finds items by their text. <code>--ids</code> on <code>reminders</code> and
-  <code>events</code> prints each item’s ID, ready to paste into an <code>edit</code> command. Dates and
-  times take <code>YYYY-MM-DD</code>, <code>YYYY-MM-DDTHH:MM</code> in the computer’s own time zone, or
-  full ISO 8601. The commands that change things work only where the list, calendar or folder is set
-  to <strong>Read &amp; Write</strong>. <code>zubi help</code> lists everything.</p>
-<pre>zubi reminders add "Buy milk" --list Groceries --due 2026-11-02
-zubi reminders --list Groceries --ids
-zubi reminders done <span class="dim">&lt;id&gt;</span>
-zubi events add "Dentist" --calendar Personal --start 2026-11-03T09:00 --end 2026-11-03T09:30</pre>
+<h2 id="devices">More devices</h2>
+<p>Each device can share the first code, or get its own: in Settings › <strong>Clients</strong>, click
+  <strong>Add Client…</strong> and pair the device with that code. With its own code, you can remove one
+  device later without touching the others.</p>
 
-<h3 id="agents">For scripts</h3>
-<p><code>--json</code> prints exactly what your Mac answered, and every failure has its own exit code.
-  Messages go to standard error, so standard output stays clean JSON.</p>
-<div class="table-scroll">
-<table>
-  <thead><tr><th>Exit code</th><th>Means</th></tr></thead>
-  <tbody>
-    <tr><td><code>0</code></td><td>Success</td></tr>
-    <tr><td><code>1</code></td><td>Any other error, including 403 (read-only, or access not granted on the Mac) and 409 (a locked note)</td></tr>
-    <tr><td><code>2</code></td><td>Bad usage, or not paired yet</td></tr>
-    <tr><td><code>3</code></td><td>Your Mac refused the code: removed or renewed</td></tr>
-    <tr><td><code>4</code></td><td>Not found, or not shared</td></tr>
-    <tr><td><code>5</code></td><td>Your Mac didn’t answer: asleep, Zubi not running, or the relay unreachable</td></tr>
-  </tbody>
-</table>
-</div>
-<pre>zubi events --from 2026-11-02 --to 2026-11-06 --json
-zubi reminders --due overdue --json | jq -r '.reminders[].title'</pre>
-
-<h3 id="mcp">Claude Desktop and MCP</h3>
-<p><code>zubi mcp</code> serves Zubi to AI assistants over the Model Context Protocol, so Claude
-  Desktop or any MCP client can list and search your reminders, events and notes, and add or edit them
-  where you allow it. Pair the client first, then add it to Claude Desktop’s
-  <code>claude_desktop_config.json</code>:</p>
-<pre>{
-  "mcpServers": {
-    "zubi": { "command": "/usr/local/bin/zubi", "args": ["mcp"] }
-  }
-}</pre>
-<p>In Claude Code: <code>claude mcp add zubi -- zubi mcp</code>.</p>
-
-<h2 id="relay">The relay</h2>
-<p>Your Mac and your devices meet at a relay, so neither has to accept connections from the internet,
-  wherever each one is. Everything between the Mac and a device is encrypted end to end with that
-  device’s code: the relay passes messages on and can’t read them. It does see which addresses connect,
-  when, and how much they send.</p>
-<p>Zubi uses its own relay, <code>wss://relay.fa-krug.de</code>, unless you set your own under
-  <strong>Settings › Connection</strong>. Pairing codes name the relay, so after switching, pair your
-  devices again.</p>
-
-<h3 id="own-relay">Your own relay</h3>
-<p>A relay is <code>zubi relay</code>, on a machine that is always on, such as a Raspberry Pi.
-  <code>--install-service</code> keeps it running as a systemd service, also after you log out; run
-  the same command with it once.</p>
+<h2 id="troubleshooting">If something doesn’t work</h2>
+<p>Run <code>zubi</code>. It shows what isn’t working:</p>
 <dl>
-  <dt>Behind a Cloudflare Tunnel: no port forwarding, needs a domain on Cloudflare</dt>
-  <dd>
-<pre>zubi relay --behind-tls-proxy --listen 127.0.0.1:8080 --install-service</pre>
-    Give the tunnel a public hostname, such as <code>relay.example.com</code>, with service type
-    <strong>HTTP</strong> and URL <code>127.0.0.1:8080</code>; write <code>127.0.0.1</code>, not
-    <code>localhost</code>, which can reach another program. <code>https://relay.example.com/health</code>
-    answers <code>ok</code> when it works. The relay’s address is
-    <code>wss://relay.example.com</code>.</dd>
-  <dt>On a machine at home, with a port forwarded</dt>
-  <dd>Forward TCP port 443 on the router to the machine’s port 8443, then:
-<pre>zubi relay --listen :8443 --install-service</pre>
-    It gets a Let’s Encrypt certificate for your public IP address, renews it, and logs its address
-    (<code>journalctl -u zubi-relay</code>). Your connection needs its own public IPv4 address, and a
-    free DuckDNS name with <code>--domain</code> keeps the address when your provider changes it.</dd>
-  <dt>On a server or a free hosting service</dt>
-  <dd>On a VPS, <code>zubi relay --install-service</code>. On Render’s free web service,
-    <code>zubi relay --behind-tls-proxy</code>; the
-    <a href="https://github.com/fa-krug/zubi/blob/main/cli/README.md#on-render">settings</a> are in the
-    client’s README.</dd>
+  <dt>“Your Mac doesn’t answer”</dt>
+  <dd>The Mac has to be on and logged in, with a green dot in Zubi’s menu. To keep it from sleeping, turn on
+    <strong>Keep this Mac awake</strong> in Settings › General.</dd>
+  <dt>“Your Mac refused the key”</dt>
+  <dd>That device was removed or got a new code. Copy its code again and run <code>zubi pair -</code>.</dd>
+  <dt>A list, calendar or folder is missing, or can’t be changed</dt>
+  <dd>Check its setting in Zubi’s Settings: Off hides it, Read can’t be changed.</dd>
+  <dt>Notes doesn’t work</dt>
+  <dd>Allow Zubi to control Notes in System Settings › Privacy &amp; Security › Automation.</dd>
 </dl>
-<p>Then, on the Mac, under <strong>Settings › Connection</strong>, turn on <strong>Use my own
-  relay</strong>, enter its <code>wss://</code> address, click <strong>Apply</strong>, and pair your
-  devices again.</p>
 
-<h2 id="updates">Updates</h2>
-<p>The app checks GitHub for a new release once a day, starting half a minute after launch. When there
-  is one, it shows the release notes; <strong>Update Now</strong> downloads it, checks that it is
-  signed by the same developer, replaces the app and offers to relaunch. <strong>Later</strong> skips
-  that version until a newer one comes out. Switch off the daily check under
-  <strong>Settings › General</strong>; <strong>Check for Updates</strong> still works. Your settings,
-  permissions and clients survive every update.</p>
-<p>The client doesn’t update itself: run the install command again, or <code>brew upgrade</code> or
-  <code>scoop update zubi</code>, whichever installed it.</p>
-
-<h2 id="security">Security</h2>
+<h2 id="security">Privacy and security</h2>
 <ul>
-  <li>Only what you shared is served, and only what you set to Read &amp; Write can be changed, checked
-    on every request. Nothing is ever deleted, and a locked note is never touched.</li>
-  <li>Every device has its own code: 32 random bytes made on your Mac and kept in its Keychain. Remove
-    a client or renew its code, and the old one stops working at once.</li>
-  <li>Everything between your Mac and a device is end-to-end encrypted with that device’s code (the
-    Noise protocol, with fresh keys for every connection). The relay can’t read it.</li>
-  <li>Zubi’s server answers on your Mac only (<code>127.0.0.1</code>); devices reach it through the
-    relay alone.</li>
+  <li>Nothing is shared until you choose it, and Zubi never deletes anything.</li>
+  <li>Everything between your Mac and a device is encrypted with that device’s code. The relay in
+    between only passes it on and can’t read it.</li>
+  <li>No account, no tracking. Treat a pairing code like a password.</li>
 </ul>
-<p>Found a vulnerability? Please report it privately, as described in the
+<p>Details are in the <a href="privacy.html">privacy policy</a>. To report a vulnerability, see the
   <a href="https://github.com/fa-krug/zubi/blob/main/SECURITY.md">security policy</a>.</p>
 
-<h2 id="troubleshooting">Troubleshooting</h2>
-<dl>
-  <dt>Connection says “Not connected”</dt>
-  <dd>The message under it says why: the relay can’t be reached, or, for your own relay, what answers
-    there instead. Zubi tries again on its own. Check that the Mac is online.</dd>
-  <dt>“Port 8787 on this Mac is already in use”</dt>
-  <dd>Another app, or a second copy of Zubi, uses the port Zubi needs. Quit it, then click
-    <strong>Start</strong>.</dd>
-  <dt><code>zubi</code> says your Mac doesn’t answer</dt>
-  <dd>The Mac has to be awake, logged in and running Zubi, with <strong>Connection</strong> green. To
-    stop it falling asleep, switch on <strong>Keep this Mac awake while Zubi serves</strong> under
-    <strong>Settings › General</strong>.</dd>
-  <dt><code>zubi</code> says your Mac refused its code</dt>
-  <dd>The client was removed or got a new code. Copy its code from <strong>Settings › Clients</strong>
-    and run <code>zubi pair -</code>.</dd>
-  <dt>403, “access not granted on the Mac”</dt>
-  <dd>Zubi lost or never got permission. Open the matching tab in Settings and click
-    <strong>Grant Access</strong>, or allow Zubi under System Settings › Privacy &amp; Security.</dd>
-  <dt>404 for a list, calendar or folder that exists</dt>
-  <dd>It is Off in Settings. Shared items are matched by ID or by their exact name.</dd>
-  <dt>403, “shared read-only”, when adding or editing</dt>
-  <dd>The list, calendar or folder is set to Read. Set it to <strong>Read &amp; Write</strong> in Settings.
-    When moving an item, the target needs Read &amp; Write too.</dd>
-  <dt>Notes answers 503</dt>
-  <dd>Zubi may not control Notes. Allow it under System Settings › Privacy &amp; Security › Automation ›
-    Zubi › Notes, then click <strong>Grant Access</strong> under Settings › Notes.</dd>
-</dl>
-
-<h2 id="source">Source code</h2>
-<p>Zubi is MIT licensed. The app, the client and the relay live in one repository,
-  <a href="https://github.com/fa-krug/zubi">github.com/fa-krug/zubi</a>, with build instructions,
-  the contribution guide, and the third-party notices.</p>
+<h2 id="relay">Your own relay</h2>
+<p>Optional: you don’t need it. Zubi connects through its own relay, <code>relay.fa-krug.de</code>. If
+  you’d rather use your own, run it on a machine that is always on, such as a Raspberry Pi:</p>
+<pre>zubi relay --install-service</pre>
+<p>It needs port 443 reachable from the internet, or a Cloudflare Tunnel; the
+  <a id="own-relay" href="https://github.com/fa-krug/zubi/blob/main/cli/README.md#your-own-relay">relay
+  guide</a> covers both. Then, on your Mac, in Settings › Connection, turn on <strong>Use my own
+  relay</strong>, enter its address, and pair your devices again.</p>
 </article>
 </div>

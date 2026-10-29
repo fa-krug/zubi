@@ -34,9 +34,9 @@ const (
 const usage = `zubi — your Mac's Reminders, calendars and Notes, from anywhere, through Zubi.
 
 Usage:
-  zubi                        The connection's status. The first time, it asks for a pairing
-                              code from Zubi › Settings › Clients on your Mac, and sets up the
-                              zubi-client service that keeps the connection
+  zubi                        The connection's status. The first time, it asks for the pairing
+                              code from Zubi's menu bar icon › Copy Pairing Code on your Mac,
+                              and sets up the zubi-client service that keeps the connection
   zubi <command> [flags]
 
 Read:
@@ -491,7 +491,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	return exitOK
 }
 
-const notPaired = "not paired with a Mac yet: run `zubi` to pair, with a code from Zubi › Settings › Clients"
+const notPaired = "not paired with a Mac yet: run `zubi` and paste the code from Zubi's menu bar icon › Copy Pairing Code"
 
 // printJSON prints a response body as --json promises: the server's JSON, indented.
 func printJSON(w io.Writer, body []byte) {

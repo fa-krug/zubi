@@ -51,7 +51,7 @@ platform() {
 		*) die "zubi has no build for Linux on $arch" ;;
 		esac
 		;;
-	*) die "zubi has no installer for $os; on Windows, use Scoop: https://zubi.fa-krug.de/docs.html#cli-install" ;;
+	*) die "zubi has no installer for $os; on Windows, use Scoop: https://zubi.fa-krug.de/docs.html#install" ;;
 	esac
 }
 
@@ -116,12 +116,8 @@ main() {
 	*) say "$dir isn't on your PATH; add it, or run $dir/zubi." ;;
 	esac
 	say ""
-	say "Next:"
-	say "  zubi pair -    reach your Mac through a relay: paste a pairing code from Zubi › Settings › Keys"
-	say "  zubi relay     run the relay on this machine, for a Mac and its devices on other networks;"
-	say "                 add --install-service to keep it running. Setup, step by step (Cloudflare"
-	say "                 Tunnel, port forwarding, free hosting): https://zubi.fa-krug.de/docs.html#relay"
-	say "  zubi help      every command"
+	say "Next, run: zubi"
+	say "It asks for the pairing code from Zubi on your Mac (menu bar icon › Copy Pairing Code)."
 }
 
 main "$@"

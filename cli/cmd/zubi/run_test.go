@@ -354,7 +354,7 @@ func TestExitCodes(t *testing.T) {
 		isolate(t)
 		f := newFakeZubi(t)
 		code, _, errOut := runZubi(t, "", "lists", "--url", f.URL)
-		if code != exitUsage || !strings.Contains(errOut, "run `zubi` to pair") {
+		if code != exitUsage || !strings.Contains(errOut, "run `zubi` and paste") {
 			t.Errorf("exit %d, stderr %q", code, errOut)
 		}
 		if len(f.seen()) != 0 {
