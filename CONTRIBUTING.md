@@ -1,7 +1,7 @@
 # Contributing to Zubi
 
 This guide is for people who want to build Zubi, change it, or send a change back. If you only want to
-use Zubi, the [README](README.md) and the [documentation](https://fa-krug.github.io/zubi/docs.html) are
+use Zubi, the [README](README.md) and the [documentation](https://zubi.fa-krug.de/docs.html) are
 the place to start.
 
 > **Don't hurry your code. Make sure it works well and is well designed. Don't worry about timing.**
@@ -33,7 +33,7 @@ One repository, four things that ship, each released only when its own files cha
 | `Sources/` | The Mac app: menu bar, Settings window, permissions, the EventKit and Notes readers, the self-updater | Swift, SwiftUI | `Zubi-Universal-<version>.zip`, tag `v<version>` |
 | `Packages/ZubiAPI/` | Everything HTTP: server, routes, key check, response types, `openapi.json`, `/docs`, the Mac's side of the relay, and the contract tests | Swift (Hummingbird) | inside the app |
 | `cli/` | `zubi`, the command-line client and relay | Go: the standard library, plus `golang.org/x/crypto` for the relay's certificates | archives per platform, tag `cli/v<version>` |
-| `site/` | The website at <https://fa-krug.github.io/zubi/>, including the generated API reference | HTML, CSS, a Python build script | GitHub Pages |
+| `site/` | The website at <https://zubi.fa-krug.de/>, including the generated API reference | HTML, CSS, a Python build script | GitHub Pages |
 
 Also in the repository:
 

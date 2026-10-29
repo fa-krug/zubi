@@ -27,7 +27,7 @@ new build as older than the installed one.
 The website deploys from a third workflow, `pages.yml`, when a push changes `site/`,
 `openapi.json` (its API reference is generated from it) or the workflow. It runs
 `python3 site/tools/build.py _site` and publishes `_site` to GitHub Pages at
-<https://fa-krug.github.io/zubi/>; a newer push cancels a deployment still running. It needs Pages'
+<https://zubi.fa-krug.de/>; a newer push cancels a deployment still running. It needs Pages'
 source set to GitHub Actions once, under the repository's Settings › Pages.
 
 ## The gate: `tests.yml`
@@ -103,7 +103,7 @@ Every channel installs the archives on the GitHub Release, pinned by their check
 | Channel | Systems | Install |
 | --- | --- | --- |
 | GitHub Releases | all | download the archive for your system |
-| Install script `site/install.sh` | Linux x86-64, ARM64 and ARMv7, macOS | `curl -fsSL https://fa-krug.github.io/zubi/install.sh \| sh` |
+| Install script `site/install.sh` | Linux x86-64, ARM64 and ARMv7, macOS | `curl -fsSL https://zubi.fa-krug.de/install.sh \| sh` |
 | Homebrew tap `fa-krug/homebrew-tap` | macOS, Linux x86-64 and ARM64 | `brew install fa-krug/tap/zubi` |
 | Scoop bucket `fa-krug/scoop-bucket` | Windows x86-64 and ARM64 | `scoop bucket add fa-krug https://github.com/fa-krug/scoop-bucket` then `scoop install fa-krug/zubi` |
 | Go | anything Go builds for | `go install github.com/fa-krug/zubi/cli/cmd/zubi@latest` |

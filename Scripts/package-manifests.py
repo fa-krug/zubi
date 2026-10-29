@@ -13,7 +13,7 @@ import sys
 
 REPO = "https://github.com/fa-krug/zubi"
 DESCRIPTION = "Read and edit the Reminders, calendars and Notes a Mac running Zubi shares"
-HOMEPAGE = "https://fa-krug.github.io/zubi/"
+HOMEPAGE = "https://zubi.fa-krug.de/"
 
 
 def main():

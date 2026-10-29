@@ -44,7 +44,7 @@ write, so you can take it back without touching the others.
 ### Install script (Linux, Raspberry Pi, macOS)
 
 ```sh
-curl -fsSL https://fa-krug.github.io/zubi/install.sh | sh
+curl -fsSL https://zubi.fa-krug.de/install.sh | sh
 ```
 
 The quickest way on a Raspberry Pi, and the only one-line install for 32-bit Raspberry Pi OS. It
@@ -57,11 +57,11 @@ so when `zubi` is already current.
 - `ZUBI_INSTALL_DIR=$HOME/.local/bin` installs there, without `sudo`.
 
 ```sh
-curl -fsSL https://fa-krug.github.io/zubi/install.sh | ZUBI_INSTALL_DIR=$HOME/.local/bin sh
+curl -fsSL https://zubi.fa-krug.de/install.sh | ZUBI_INSTALL_DIR=$HOME/.local/bin sh
 ```
 
 It needs `curl` or `wget`, and `tar`. To read it before running it, download it first:
-`curl -fsSLO https://fa-krug.github.io/zubi/install.sh`, then `sh install.sh`. The Raspberry Pi Zero
+`curl -fsSLO https://zubi.fa-krug.de/install.sh`, then `sh install.sh`. The Raspberry Pi Zero
 and Pi 1 (ARMv6) have no build.
 
 ### Homebrew (macOS and Linux)
