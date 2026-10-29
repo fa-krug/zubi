@@ -1,0 +1,179 @@
+name: Release CLI
+
+# A push to main that changes cli/ ships the CLI: one archive per platform on a GitHub Release tagged
+# cli/vX.Y.Z, the Go convention for a module in a subdirectory, so `go install ...@latest` finds it
+# too. It is never marked Latest: that badge, and the in-app updater, belong to the app's releases.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'cli/**'
+      - '.github/workflows/release-cli.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: release-cli
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  tests:
+    uses: ./.github/workflows/tests.yml
+
+  release:
+    needs: tests
+    # macOS, because the darwin binary is signed and notarized; Go cross-compiles the rest from here.
+    runs-on: macos-26
+    defaults:
+      run:
+        working-directory: cli
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: cli/go.mod
+          cache-dependency-path: cli/go.mod
+
+      # Same scheme as the app: MAJOR.MINOR from cli/VERSION, the patch is this workflow's run number.
+      - name: Compute version
+        id: meta
+        run: |
+          BASE="$(tr -d '[:space:]' < VERSION)"
+          VERSION="${BASE%.*}.${GITHUB_RUN_NUMBER}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+          CGO_ENABLED: '0'
+        run: |
+          LDFLAGS="-s -w -X main.version=${VERSION}"
+          build() { GOOS="$1" GOARCH="$2" GOARM=7 go build -trimpath -ldflags "$LDFLAGS" -o "$3" ./cmd/zubi; }
+          mkdir -p "$RUNNER_TEMP/bin"
+          build darwin arm64 "$RUNNER_TEMP/bin/zubi-darwin-arm64"
+          build darwin amd64 "$RUNNER_TEMP/bin/zubi-darwin-amd64"
+          build linux amd64 "$RUNNER_TEMP/bin/zubi-linux-amd64"
+          build linux arm64 "$RUNNER_TEMP/bin/zubi-linux-arm64"
+          build linux arm "$RUNNER_TEMP/bin/zubi-linux-armv7"
+          build windows amd64 "$RUNNER_TEMP/bin/zubi-windows-amd64.exe"
+          build windows arm64 "$RUNNER_TEMP/bin/zubi-windows-arm64.exe"
+          # One file for every Mac, as the app ships one universal build.
+          lipo -create -output "$RUNNER_TEMP/bin/zubi-darwin-universal" \
+            "$RUNNER_TEMP/bin/zubi-darwin-arm64" "$RUNNER_TEMP/bin/zubi-darwin-amd64"
+
+      - name: Import signing certificate
+        env:
+          P12_BASE64: ${{ secrets.DEVELOPER_ID_P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          KPW="$(openssl rand -base64 24)"
+          echo "${P12_BASE64}" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$KPW" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KPW" "$KEYCHAIN"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" -P "${P12_PASSWORD}" -A -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KPW" "$KEYCHAIN" >/dev/null
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | sed 's/"//g')
+          rm -f "$RUNNER_TEMP/cert.p12"
+
+      # A bare binary can't carry a stapled ticket, so Gatekeeper looks the notarization up online on
+      # first run; a browser-downloaded copy then opens without the "unverified developer" block.
+      - name: Sign and notarize the macOS binary
+        env:
+          KEY_BASE64: ${{ secrets.NOTARY_API_KEY_BASE64 }}
+          KEY_ID: ${{ secrets.NOTARY_API_KEY_ID }}
+          ISSUER_ID: ${{ secrets.NOTARY_API_ISSUER_ID }}
+        run: |
+          BIN="$RUNNER_TEMP/bin/zubi-darwin-universal"
+          codesign --force --options runtime --timestamp \
+            --identifier de.fa-krug.zubi.cli --sign "Developer ID Application" "$BIN"
+          codesign --verify --strict --verbose=2 "$BIN"
+          KEY="$RUNNER_TEMP/AuthKey.p8"
+          echo "${KEY_BASE64}" | base64 --decode > "$KEY"
+          trap 'rm -f "$KEY"' EXIT
+          ditto -c -k "$BIN" "$RUNNER_TEMP/notarize.zip"
+          RESULT="$(xcrun notarytool submit "$RUNNER_TEMP/notarize.zip" --key "$KEY" --key-id "${KEY_ID}" \
+            --issuer "${ISSUER_ID}" --wait --timeout 1h --output-format json)"
+          echo "$RESULT"
+          STATUS="$(plutil -extract status raw -o - - <<< "$RESULT")"
+          if [ "$STATUS" != "Accepted" ]; then
+            xcrun notarytool log "$(plutil -extract id raw -o - - <<< "$RESULT")" --key "$KEY" \
+              --key-id "${KEY_ID}" --issuer "${ISSUER_ID}" || true
+            echo "::error::Notarization finished as '$STATUS'"
+            exit 1
+          fi
+
+      # Each archive carries the licences: Zubi's MIT, and Go's BSD for the runtime linked into it.
+      - name: Package
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          DIST="$GITHUB_WORKSPACE/dist"
+          mkdir -p "$DIST"
+          pack() {
+            local name="zubi_${VERSION}_$1" src="$2" exe="$3"
+            local dir="$RUNNER_TEMP/pkg/$name"
+            mkdir -p "$dir"
+            cp "$src" "$dir/$exe"
+            cp README.md "$dir/README.md"
+            cp ../LICENSE "$dir/LICENSE"
+            cp "$(go env GOROOT)/LICENSE" "$dir/LICENSE.go"
+            if [[ "$exe" == *.exe ]]; then
+              (cd "$RUNNER_TEMP/pkg" && zip -qr "$DIST/$name.zip" "$name")
+            else
+              tar -C "$RUNNER_TEMP/pkg" -czf "$DIST/$name.tar.gz" "$name"
+            fi
+          }
+          pack darwin_universal "$RUNNER_TEMP/bin/zubi-darwin-universal" zubi
+          pack linux_amd64 "$RUNNER_TEMP/bin/zubi-linux-amd64" zubi
+          pack linux_arm64 "$RUNNER_TEMP/bin/zubi-linux-arm64" zubi
+          pack linux_armv7 "$RUNNER_TEMP/bin/zubi-linux-armv7" zubi
+          pack windows_amd64 "$RUNNER_TEMP/bin/zubi-windows-amd64.exe" zubi.exe
+          pack windows_arm64 "$RUNNER_TEMP/bin/zubi-windows-arm64.exe" zubi.exe
+          (cd "$DIST" && shasum -a 256 zubi_* > "zubi_${VERSION}_checksums.txt")
+          ls -l "$DIST"
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          PREVIOUS="$(git tag -l 'cli/v[0-9]*' --sort=-v:refname | head -n1)"
+          gh release create "cli/v${VERSION}" "$GITHUB_WORKSPACE"/dist/* \
+            --target "$GITHUB_SHA" \
+            --title "Zubi CLI ${VERSION}" \
+            --generate-notes ${PREVIOUS:+--notes-start-tag "$PREVIOUS"} \
+            --latest=false
+
+      # Homebrew (macOS, Linux) and Scoop (Windows) install from their own repositories, so each
+      # release rewrites the formula and manifest there. Skipped, with a notice, until PACKAGES_TOKEN
+      # (a token that can push to both) is set; see docs/release.md.
+      - name: Update Homebrew tap and Scoop bucket
+        env:
+          TOKEN: ${{ secrets.PACKAGES_TOKEN }}
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          if [ -z "${TOKEN}" ]; then
+            echo "::notice::PACKAGES_TOKEN is not set; Homebrew and Scoop were not updated."
+            exit 0
+          fi
+          WORK="$RUNNER_TEMP/packages"
+          git clone --depth 1 "https://x-access-token:${TOKEN}@github.com/fa-krug/homebrew-tap.git" "$WORK/tap"
+          git clone --depth 1 "https://x-access-token:${TOKEN}@github.com/fa-krug/scoop-bucket.git" "$WORK/bucket"
+          mkdir -p "$WORK/tap/Formula" "$WORK/bucket/bucket"
+          python3 ../Scripts/package-manifests.py "$VERSION" "$GITHUB_WORKSPACE/dist/zubi_${VERSION}_checksums.txt" \
+            "$WORK/tap/Formula/zubi.rb" "$WORK/bucket/bucket/zubi.json"
+          for REPO in tap bucket; do
+            # -A, not -a: the first release creates the formula and manifest rather than changing them.
+            git -C "$WORK/$REPO" add -A
+            git -C "$WORK/$REPO" -c user.name="github-actions[bot]" \
+              -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+              commit -m "zubi ${VERSION}" --allow-empty
+            git -C "$WORK/$REPO" push
+          done

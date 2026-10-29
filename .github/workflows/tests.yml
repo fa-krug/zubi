@@ -1,0 +1,76 @@
+name: Tests
+
+# The drift gate. openapi.json is the contract: the server is tested against it, the CLI is tested
+# against it, and both release workflows call this before they publish anything.
+on:
+  pull_request:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  server:
+    name: Server and app
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode 26
+        run: |
+          XCODE_PATH="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -n1)"
+          if [ -z "$XCODE_PATH" ]; then
+            echo "::error::No Xcode 26.x found on this runner."
+            exit 1
+          fi
+          echo "DEVELOPER_DIR=$XCODE_PATH/Contents/Developer" >> "$GITHUB_ENV"
+
+      # Every route against openapi.json, with fake sources: no EventKit, Notes or permissions.
+      - name: API tests
+        working-directory: Packages/ZubiAPI
+        run: swift test
+
+      # Unsigned: this proves the app still compiles against the package, not that it ships.
+      - name: Build app
+        run: |
+          xcodebuild -project Zubi.xcodeproj -scheme Zubi -configuration Debug \
+            -skipPackagePluginValidation -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=NO build
+
+  cli:
+    name: CLI
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cli
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: cli/go.mod
+          cache-dependency-path: cli/go.mod
+
+      - name: Format
+        run: |
+          UNFORMATTED="$(gofmt -l .)"
+          if [ -n "$UNFORMATTED" ]; then
+            echo "::error::gofmt would change: $UNFORMATTED"
+            exit 1
+          fi
+
+      - name: Vet
+        run: go vet ./...
+
+      # Includes the drift tests: every request and response struct against openapi.json.
+      - name: Test
+        run: go test ./...
+
+      - name: Cross-compile
+        env:
+          CGO_ENABLED: '0'
+        run: |
+          for TARGET in darwin/arm64 darwin/amd64 linux/amd64 linux/arm64 linux/arm windows/amd64 windows/arm64; do
+            GOOS="${TARGET%/*}" GOARCH="${TARGET#*/}" GOARM=7 go build -o /dev/null ./cmd/zubi
+          done

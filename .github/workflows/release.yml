@@ -1,26 +1,42 @@
-name: Release
+name: Release app
 
-# Every push to main ships: a Developer ID signed, notarized universal build, published as the
-# GitHub Release the in-app updater reads. See docs/release.md.
+# A push to main that changes the app ships it: a Developer ID signed, notarized universal build,
+# published as the GitHub Release the in-app updater reads. See docs/release.md. The file keeps its
+# name because the run number is the version's patch: a renamed workflow would restart at 1.
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - '**/*.md'
-      - 'docs/**'
+    # The CLI releases from its own workflow; a change to cli/ alone never ships the app.
+    paths:
+      - 'Sources/**'
+      - 'Packages/**'
+      - 'project.yml'
+      - 'Zubi.xcodeproj/**'
+      - 'NOTICE.md'
+      - 'Scripts/verify-signature.sh'
+      - '.github/workflows/release.yml'
+  workflow_dispatch:
 
 concurrency:
-  group: release
+  group: release-app
   cancel-in-progress: false
 
 permissions:
   contents: write
 
 jobs:
+  # The drift gate: server against the spec, CLI against the spec. Nothing ships past a red one.
+  tests:
+    uses: ./.github/workflows/tests.yml
+
   release:
+    needs: tests
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Tags, so the notes start at the previous app release rather than a CLI one.
+          fetch-depth: 0
 
       - name: Select Xcode 26
         run: |
@@ -157,8 +173,9 @@ jobs:
           VERSION: ${{ steps.meta.outputs.version }}
           ZIP_FILE: ${{ steps.meta.outputs.zip_file }}
         run: |
+          PREVIOUS="$(git tag -l 'v[0-9]*' --sort=-v:refname | head -n1)"
           gh release create "v${VERSION}" "dist/${ZIP_FILE}" \
             --target "$GITHUB_SHA" \
             --title "Zubi ${VERSION}" \
-            --generate-notes \
+            --generate-notes ${PREVIOUS:+--notes-start-tag "$PREVIOUS"} \
             --latest

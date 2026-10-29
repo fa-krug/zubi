@@ -1,0 +1,46 @@
+name: Deploy website
+
+# Builds site/ into _site/ and publishes it to GitHub Pages, only when a push changes the site,
+# the API spec its reference page is generated from, or this workflow. One-time setup: Settings ›
+# Pages › Source: "GitHub Actions".
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - 'Packages/ZubiAPI/Sources/ZubiAPI/Resources/openapi.json'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# A newer push supersedes a deployment still in flight; the site has no history worth finishing.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Standard library only: the runner's Python is all it needs.
+      - name: Build
+        run: python3 site/tools/build.py _site
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

@@ -22,3 +22,10 @@ dist/
 
 # The original source drop
 Zubi.zip
+
+# Website build output (site/tools/build.py)
+_site/
+
+# A `go build` in cli/ leaves the binary here
+/cli/zubi
+/cli/zubi.exe
