@@ -1,0 +1,178 @@
+<!-- {"title": "Zubi", "description": "A free macOS menu bar app that serves the Reminders lists, calendars and Notes folders you choose over a small HTTP API, so a Raspberry Pi, a script or an AI agent can read them, and add and edit them where you allow it.", "nav": "home"} -->
+<section class="hero">
+  <div class="wrap">
+    <h1>Your Mac’s reminders, calendars and notes, on everything else.</h1>
+    <p class="lede">Zubi is a free menu bar app that serves the Reminders lists, calendars and Notes
+      folders you choose over a small HTTP API. A Raspberry Pi on the wall, a Linux laptop, a script
+      or an AI agent can read them, and add and edit them where you allow it. The data never leaves
+      your Mac for anyone else’s server.</p>
+    <div class="hero-actions">
+      <a class="button button-primary" href="https://github.com/fa-krug/zubi/releases/latest">Download for Mac</a>
+      <a class="button button-quiet" href="#start">Set it up in three steps</a>
+      <span class="hero-note">macOS 14 or later. Free and open source.</span>
+    </div>
+
+    <div class="bridge" aria-label="The same reminders in the Reminders app on a Mac and in a terminal on another device">
+      <div class="bank" aria-hidden="true">
+        <div class="bank-title"><strong>Reminders</strong><span>on your Mac</span></div>
+        <div class="list-head"><span class="dot" style="background:#1e88e5"></span>Home</div>
+        <ul class="mac-list">
+          <li><span class="box"></span>Water the plants<span class="when late">Today, 08:00</span></li>
+          <li><span class="box"></span>Pick up the parcel<span class="when">Today, 17:30</span></li>
+          <li><span class="box"></span>Book the dentist<span class="when">Tomorrow</span></li>
+        </ul>
+      </div>
+      <div class="span" aria-hidden="true">
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none">
+          <path class="arch" d="M 0 100 A 50 66 0 0 1 100 100"/>
+          <path class="deck" d="M 0 34 L 100 34"/>
+        </svg>
+        <span class="traveller"></span>
+        <span class="span-caption">your network</span>
+      </div>
+      <div class="bank term" aria-hidden="true">
+        <div class="bank-title"><strong>pi@kitchen</strong><span>Raspberry Pi</span></div>
+<pre><span class="dim">$</span> zubi reminders --list Home
+[ ] Water the plants  <span style="color:#ff6b6b">due Thu 29 Oct 08:00</span>  <span class="dim">Home</span>
+[ ] Pick up the parcel  due Thu 29 Oct 17:30  <span class="dim">Home</span>
+[ ] Book the dentist  due Fri 30 Oct  <span class="dim">Home</span>
+<span class="dim">$</span> </pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="uses">
+  <div class="wrap">
+    <h2>Where you can use it</h2>
+    <p class="section-intro">Anything that can make an HTTP request can read what you share: plain JSON,
+      described in OpenAPI. For terminals and agents there is <code>zubi</code>, a small command-line
+      client for macOS, Linux and Windows.</p>
+    <ul class="uses">
+      <li>
+        <div>
+          <h3>A Raspberry Pi display</h3>
+          <p>Put today’s events and the shopping list on a screen by the front door or the fridge.
+            The Pi reaches your Mac through an SSH tunnel or your Tailscale network.</p>
+        </div>
+<pre>zubi events
+zubi reminders --list Groceries</pre>
+      </li>
+      <li>
+        <div>
+          <h3>Home Assistant and Node-RED</h3>
+          <p>A REST sensor turns your reminders into a number on a dashboard, or a trigger for an
+            automation when something is overdue.</p>
+        </div>
+<pre>sensor:
+  - platform: rest
+    name: Reminders due today
+    resource: http://mac.local:8787/api/reminders?due=today
+    headers:
+      Authorization: !secret zubi_bearer
+    value_template: "{{ value_json.reminders | count }}"</pre>
+      </li>
+      <li>
+        <div>
+          <h3>AI agents</h3>
+          <p>Let Claude Code, Codex or any agent with a shell read your schedule, and, in the lists and
+            calendars you open for writing, add events and tick off reminders. <code>--json</code> prints
+            the API’s answer as-is, and every failure has its own exit code.</p>
+        </div>
+<pre>zubi events --from 2026-11-02 --to 2026-11-06 --json</pre>
+      </li>
+      <li>
+        <div>
+          <h3>Scripts and cron jobs</h3>
+          <p>A morning summary by email, a reminder count in your shell prompt, or a backup of a
+            Notes folder as plain text.</p>
+        </div>
+<pre>zubi reminders --due overdue --json \
+  | jq -r '.reminders[].title'</pre>
+      </li>
+      <li>
+        <div>
+          <h3>Linux and Windows</h3>
+          <p>Your Apple calendars and reminders in a terminal on the computers Apple doesn’t make
+            apps for.</p>
+        </div>
+<pre>zubi calendars
+zubi notes --folder Recipes</pre>
+      </li>
+      <li>
+        <div>
+          <h3>Your own app</h3>
+          <p>Every endpoint is described in an OpenAPI document, so you can generate a client in
+            any language, or read the <a href="api.html">API reference</a>.</p>
+        </div>
+<pre>curl -H "Authorization: Bearer $ZUBI_KEY" \
+  http://127.0.0.1:8787/api/calendars</pre>
+      </li>
+    </ul>
+  </div>
+</section>
+
+<section class="section" id="start">
+  <div class="wrap">
+    <h2>Set it up in three steps</h2>
+    <p class="section-intro">About three minutes on your Mac. Nothing is shared until step two, and
+      only what you choose.</p>
+    <ol class="steps">
+      <li>
+        <h3>Install</h3>
+        <p><a href="https://github.com/fa-krug/zubi/releases/latest">Download Zubi</a>, unzip it and
+          move it to Applications. Open it, and its icon appears in the menu bar. It is signed and
+          notarized, and keeps itself up to date.</p>
+      </li>
+      <li>
+        <h3>Choose what to share</h3>
+        <p>Click the menu bar icon, then <strong>Settings…</strong>. Under <strong>Reminders</strong>,
+          <strong>Calendars</strong> and <strong>Notes</strong>, click <strong>Grant Access</strong>,
+          then set each list, calendar and folder to <strong>Read</strong>, or to
+          <strong>Read &amp; Write</strong> if your devices may also add and edit there.</p>
+      </li>
+      <li>
+        <h3>Make your first call</h3>
+        <p>Under <strong>Keys</strong>, click <strong>Copy Command</strong> and run it in Terminal.
+          You get your shared events back as JSON.</p>
+<pre>curl -H "Authorization: Bearer <span class="dim">&lt;key&gt;</span>" \
+  http://127.0.0.1:8787/api/events</pre>
+      </li>
+    </ol>
+    <div class="callout">
+      <p><strong>Reading from another device?</strong> At first Zubi only answers on your Mac. Tunnel
+        to it with <code>ssh -N -L 8787:localhost:8787 you@mac.local</code>, or bind it to your
+        Tailscale address under <strong>Settings › Server</strong>.</p>
+      <p>Then <a href="docs.html#cli">install the command-line client</a> on that device, or call the
+        API directly.</p>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="privacy">
+  <div class="wrap">
+    <h2>What Zubi shares, and what it doesn’t</h2>
+    <div class="promises">
+      <div>
+        <h3>Nothing until you choose</h3>
+        <p>Every list, calendar and folder starts Off, which answers as if it didn’t exist. Read shares
+          it; only Read &amp; Write lets your devices add and edit there. Nothing is ever deleted.</p>
+      </div>
+      <div>
+        <h3>A key on every request</h3>
+        <p>Each call needs the API key generated on your Mac and kept in its Keychain. You can
+          replace it with one click.</p>
+      </div>
+      <div>
+        <h3>Your Mac only, by default</h3>
+        <p>Zubi listens on <code>127.0.0.1</code> until you decide otherwise, so nothing on your
+          network can reach it by accident.</p>
+      </div>
+      <div>
+        <h3>No cloud, no account</h3>
+        <p>There is no Zubi server. The app talks to your devices, and once a day to GitHub to check
+          for updates, which you can switch off.</p>
+      </div>
+    </div>
+  </div>
+</section>
