@@ -71,6 +71,10 @@ jobs:
       - name: Test
         run: ZUBI_PEBBLE="$(go env GOPATH)/bin/pebble" go test ./...
 
+      # The website's installer (site/install.sh) runs on every Linux and macOS shell, dash included.
+      - name: Install script
+        run: shellcheck --shell=sh ../site/install.sh
+
       - name: Cross-compile
         env:
           CGO_ENABLED: '0'

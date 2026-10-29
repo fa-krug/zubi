@@ -101,7 +101,13 @@ zubi reminders add "Buy milk" --list Groceries --due 2026-11-02
 zubi reminders --due overdue --json
 ```
 
-Install it with Homebrew on macOS and Linux, or Scoop on Windows:
+On Linux, a Raspberry Pi or a Mac, install it with one line:
+
+```bash
+curl -fsSL https://fa-krug.github.io/zubi/install.sh | sh
+```
+
+Or with Homebrew on macOS and Linux, or Scoop on Windows:
 
 ```bash
 brew install fa-krug/tap/zubi

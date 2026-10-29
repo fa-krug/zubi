@@ -44,7 +44,8 @@ pull request. `openapi.json` is the contract, and it is checked from both sides:
   in `cmd/zubi/commands.go` to exist in the spec with only declared parameters, every response struct
   to match its schema field for field, and the fixtures to validate against the spec. The job installs
   Pebble, Let's Encrypt's test CA, so the relay's certificate tests run against a real ACME server.
-  Then a cross-compile for every platform the release ships.
+  Then `shellcheck` on the website's install script, and a cross-compile for every platform the
+  release ships.
 
 ## The app
 
@@ -102,6 +103,7 @@ Every channel installs the archives on the GitHub Release, pinned by their check
 | Channel | Systems | Install |
 | --- | --- | --- |
 | GitHub Releases | all | download the archive for your system |
+| Install script `site/install.sh` | Linux x86-64, ARM64 and ARMv7, macOS | `curl -fsSL https://fa-krug.github.io/zubi/install.sh \| sh` |
 | Homebrew tap `fa-krug/homebrew-tap` | macOS, Linux x86-64 and ARM64 | `brew install fa-krug/tap/zubi` |
 | Scoop bucket `fa-krug/scoop-bucket` | Windows x86-64 and ARM64 | `scoop bucket add fa-krug https://github.com/fa-krug/scoop-bucket` then `scoop install fa-krug/zubi` |
 | Go | anything Go builds for | `go install github.com/fa-krug/zubi/cli/cmd/zubi@latest` |
@@ -116,8 +118,14 @@ checksums, and pushes both. It needs:
    this repository as the secret `PACKAGES_TOKEN`.
 
 Until the secret exists the step prints a notice and skips, so a CLI release never fails for it.
-Homebrew on Linux supports only x86-64 and 64-bit ARM, so 32-bit Raspberry Pi OS keeps the manual
-download.
+Homebrew on Linux supports only x86-64 and 64-bit ARM, so 32-bit Raspberry Pi OS uses the install
+script or the manual download.
+
+The install script is published with the website and needs nothing at release time: it finds the
+newest `cli/v…` tag through GitHub's API, and downloads `zubi_<version>_<platform>.tar.gz` and
+`zubi_<version>_checksums.txt` from that release. Renaming the archives, their platform names or the
+checksums file breaks it, so change `site/install.sh` in the same commit. The test gate runs
+`shellcheck` on it.
 
 ## One-time setup
 
