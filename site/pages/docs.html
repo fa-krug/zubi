@@ -78,7 +78,9 @@
         Then, behind a Cloudflare Tunnel (no port forwarding):
 <pre>zubi relay --behind-tls-proxy --listen 127.0.0.1:8080 --install-service</pre>
         and give the tunnel a public hostname, such as <code>relay.example.com</code>, with service
-        <strong>HTTP</strong> and URL <code>127.0.0.1:8080</code>. Its address is
+        <strong>HTTP</strong> and URL <code>127.0.0.1:8080</code>, not <code>localhost</code>, which can
+        reach a different program. Check that <code>https://relay.example.com/health</code> answers
+        <code>ok</code>. Its address is
         <code>wss://relay.example.com</code>. Port forwarding, free hosting and the details:
         <a href="#relay-server">Run the relay</a>.</li>
       <li><strong>Connect the Mac:</strong> under <strong>Settings › Server › Relay</strong>, turn on
@@ -345,7 +347,9 @@ zubi lists</pre></li>
 <pre>zubi relay --behind-tls-proxy --listen 127.0.0.1:8080 --install-service</pre></li>
       <li>In the Cloudflare dashboard, under your tunnel’s <strong>Public Hostname</strong>, add a
         hostname such as <code>relay.example.com</code> with service type <strong>HTTP</strong> and URL
-        <code>127.0.0.1:8080</code>. In a <code>cloudflared</code> config file, that is:
+        <code>127.0.0.1:8080</code>. Write <code>127.0.0.1</code>, not <code>localhost</code>: on the Pi,
+        <code>localhost</code> can mean the IPv6 address, where another program may answer. In a
+        <code>cloudflared</code> config file, that is:
 <pre>ingress:
   - hostname: relay.example.com
     service: http://127.0.0.1:8080
@@ -668,6 +672,14 @@ zubi reminders add "Call the plumber" --list Errands --due 2026-11-03T09:00 --js
   <dt>Notes answers 503</dt>
   <dd>Zubi may not control Notes. Allow it under System Settings › Privacy &amp; Security › Automation ›
     Zubi › Notes, then click <strong>Grant Access</strong> under Settings › Notes.</dd>
+  <dt>The relay’s status says the address “isn’t a Zubi relay”</dt>
+  <dd>Something else answers at the relay’s address, usually because the tunnel or proxy points at the
+    wrong port or at <code>localhost</code>. On the machine running <code>cloudflared</code>,
+    <code>curl http://127.0.0.1:8080/</code> should answer “Zubi relay”; set the tunnel’s service URL to
+    that address. <code>https://&lt;relay&gt;/health</code> answers <code>ok</code> once it’s right.</dd>
+  <dt>The relay’s status says “nothing answers behind it”</dt>
+  <dd>The tunnel or proxy works, but <code>zubi relay</code> isn’t running behind it, or listens on
+    another port. <code>systemctl status zubi-relay</code> on the relay’s machine says which.</dd>
   <dt><code>zubi pair</code> says the key was refused</dt>
   <dd>The key was deleted or regenerated after the code was copied. Copy a new pairing code from
     <strong>Settings › Keys</strong>.</dd>
