@@ -439,14 +439,14 @@ type mcpServer struct {
 }
 
 func runMCP(g globals, stdin io.Reader, stdout, stderr io.Writer) int {
-	baseURL, key, err := resolve(g.url, g.key)
+	ep, key, err := resolve(g.url, g.key)
 	if err != nil {
 		fmt.Fprintln(stderr, "zubi mcp:", err)
 		return exitError
 	}
-	s := &mcpServer{client: NewClient(baseURL, key, g.timeout), out: stdout, inFlight: map[string]context.CancelFunc{}}
+	s := &mcpServer{client: NewClient(ep, key, g.timeout), out: stdout, inFlight: map[string]context.CancelFunc{}}
 	// stdout carries the protocol alone; what people read goes to stderr, the client's log.
-	fmt.Fprintf(stderr, "zubi mcp %s: serving Zubi at %s over stdio\n", version, baseURL)
+	fmt.Fprintf(stderr, "zubi mcp %s: serving Zubi at %s over stdio\n", version, ep)
 	if key == "" {
 		fmt.Fprintln(stderr, "zubi mcp: "+noKey+" Until then every tool answers with an error.")
 	}
@@ -628,7 +628,7 @@ func (s *mcpServer) call(ctx context.Context, tool mcpTool, rawArgs json.RawMess
 	}
 	body, err := s.client.Raw(ctx, cmd, req)
 	if err != nil {
-		return textResult(mcpErrorText(err, s.client.BaseURL), true)
+		return textResult(mcpErrorText(err, s.client.Where), true)
 	}
 	return textResult(string(bytes.TrimSpace(body)), false)
 }

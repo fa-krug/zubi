@@ -125,6 +125,7 @@ struct KeysPane: View {
                 Menu {
                     Button("Copy Key") { controller.copyToPasteboard(key.secret) }
                     Button("Copy curl Command") { controller.copyToPasteboard(controller.curlCommand(for: key)) }
+                    pairingMenu(key)
                     feedMenu(key)
                     Divider()
                     Button("Rename…") {
@@ -150,6 +151,17 @@ struct KeysPane: View {
                 Image(systemName: key.access == .readWrite ? "key.fill" : "key")
                     .foregroundStyle(.purple)
             }
+        }
+    }
+
+    /// A pairing code needs the relay connection, whose room is part of it.
+    @ViewBuilder
+    private func pairingMenu(_ key: StoredKey) -> some View {
+        if let code = controller.pairingCode(for: key) {
+            Button("Copy Pairing Code") { controller.copyToPasteboard(code) }
+        } else {
+            Button("Pairing Codes Need a Relay (Settings › Server)") {}
+                .disabled(true)
         }
     }
 
@@ -260,6 +272,13 @@ private struct KeySheetView: View {
                 .fixedSize(horizontal: false, vertical: true)
             secretRow(key.secret, button: "Copy Key")
             secretRow(controller.curlCommand(for: key), button: "Copy Command")
+            if let code = controller.pairingCode(for: key) {
+                Text("On a device elsewhere, run “zubi pair” and paste this code: it reaches this Mac through the "
+                     + "relay. It holds the key, so keep it as secret.")
+                    .font(.callout)
+                    .fixedSize(horizontal: false, vertical: true)
+                secretRow(code, button: "Copy Code")
+            }
         } else {
             Text("The key could not be saved.").font(.headline)
         }

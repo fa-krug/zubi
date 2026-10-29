@@ -9,6 +9,9 @@ enum SettingsKey {
     static let keyLastUsed = "keyLastUsed"
     /// Set once Settings has been shown, so a first launch with nothing shared opens it only once.
     static let settingsOpened = "settingsOpened"
+    static let relayEnabled = "relayEnabled"
+    /// The relay's wss:// address.
+    static let relayURL = "relayURL"
 }
 
 enum BindMode: String, CaseIterable, Identifiable {

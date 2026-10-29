@@ -23,6 +23,8 @@ enum KeyStore {
     private static let account = "api-keys"
     /// The single key from before there were several.
     private static let legacyAccount = "api-key"
+    /// This Mac's relay room key, raw Ed25519.
+    private static let roomKeyAccount = "relay-room-key"
 
     struct KeychainError: Error, CustomStringConvertible {
         let status: OSStatus
@@ -49,7 +51,19 @@ enum KeyStore {
     }
 
     static func save(_ keys: [StoredKey]) throws {
-        let data = try JSONEncoder().encode(keys)
+        try store(JSONEncoder().encode(keys), account: account)
+    }
+
+    /// The key this Mac's relay room is made from, created on first use. The room, and so every
+    /// pairing code handed out, depends on it, so it is never replaced.
+    static func roomKey() throws -> Data {
+        if let key = try read(roomKeyAccount) { return key }
+        let key = RelayHost.newRoomKey()
+        try store(key, account: roomKeyAccount)
+        return key
+    }
+
+    private static func store(_ data: Data, account: String) throws {
         let status = SecItemUpdate(query(account) as CFDictionary, [kSecValueData as String: data] as CFDictionary)
         if status == errSecItemNotFound {
             var add = query(account)

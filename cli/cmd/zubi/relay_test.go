@@ -1,13 +1,11 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"io"
 	"net/http"
 	"regexp"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 )
@@ -29,34 +27,16 @@ func TestRelayUsageErrors(t *testing.T) {
 	}
 }
 
-// syncBuffer is a log the relay writes while the test reads it.
-type syncBuffer struct {
-	mu  sync.Mutex
-	buf bytes.Buffer
-}
-
-func (b *syncBuffer) Write(p []byte) (int, error) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	return b.buf.Write(p)
-}
-
-func (b *syncBuffer) String() string {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	return b.buf.String()
-}
-
 // startRelayCommand runs `zubi relay` with args until the test stops it, and returns the address
 // it logged and a function that stops it and returns its exit code.
-func startRelayCommand(t *testing.T, args ...string) (addr string, stop func() int, log *syncBuffer) {
+func startRelayCommand(t *testing.T, args ...string) (addr string, stop func() int, log *lockedBuffer) {
 	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
-	saved := relayContext
-	relayContext = func() (context.Context, context.CancelFunc) { return ctx, cancel }
-	t.Cleanup(func() { relayContext = saved })
+	saved := signalContext
+	signalContext = func() (context.Context, context.CancelFunc) { return ctx, cancel }
+	t.Cleanup(func() { signalContext = saved })
 
-	log = &syncBuffer{}
+	log = &lockedBuffer{}
 	codes := make(chan int, 1)
 	go func() { codes <- run(append([]string{"relay"}, args...), strings.NewReader(""), io.Discard, log) }()
 	listening := regexp.MustCompile(`serving .*on \S*:(\d+)`)

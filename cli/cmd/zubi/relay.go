@@ -61,7 +61,7 @@ func runRelay(args []string, o options, stdout, stderr io.Writer) int {
 	}
 
 	logger := log.New(stderr, "", log.LstdFlags)
-	ctx, stop := relayContext()
+	ctx, stop := signalContext()
 	defer stop()
 
 	server := relay.New(relay.Options{BehindProxy: o.behindProxy, Logf: logger.Printf})
@@ -137,8 +137,8 @@ func runRelay(args []string, o options, stdout, stderr io.Writer) int {
 	return exitOK
 }
 
-// relayContext ends on Ctrl-C or SIGTERM, which stop the relay; tests replace it.
-var relayContext = func() (context.Context, context.CancelFunc) {
+// signalContext ends on Ctrl-C or SIGTERM, which stop the relay and the tunnel; tests replace it.
+var signalContext = func() (context.Context, context.CancelFunc) {
 	return signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 }
 

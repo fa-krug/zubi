@@ -562,7 +562,7 @@ func TestClientRefusesUndeclaredRequests(t *testing.T) {
 		"unknown path value":   {edit, request{Path: map[string]string{"id": "R1", "list": "L1"}, Body: ReminderUpdate{}}},
 	}
 	for name, c := range cases {
-		_, err := NewClient(f.URL, testKey, 0).Raw(context.Background(), c.cmd, c.req)
+		_, err := NewClient(endpoint{URL: f.URL}, testKey, 0).Raw(context.Background(), c.cmd, c.req)
 		if err == nil || !strings.Contains(err.Error(), "internal error") {
 			t.Errorf("%s: want an internal error, got %v", name, err)
 		}
