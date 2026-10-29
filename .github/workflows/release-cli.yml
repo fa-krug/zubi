@@ -39,7 +39,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: cli/go.mod
-          cache-dependency-path: cli/go.mod
+          cache-dependency-path: cli/go.sum
 
       # Same scheme as the app: MAJOR.MINOR from cli/VERSION, the patch is this workflow's run number.
       - name: Compute version
@@ -111,7 +111,8 @@ jobs:
             exit 1
           fi
 
-      # Each archive carries the licences: Zubi's MIT, and Go's BSD for the runtime linked into it.
+      # Each archive carries the licences: Zubi's MIT, and Go's BSD for the runtime and for
+      # golang.org/x/crypto (the relay's ACME client), which share that licence word for word.
       - name: Package
         env:
           VERSION: ${{ steps.meta.outputs.version }}

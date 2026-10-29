@@ -17,7 +17,7 @@ contradicts the code is a defect, so fix it in the commit that made it wrong.
 One document per feature, covering its invariants and internals. Every one of them opens with an
 `## Invariants` section; read it before changing anything in that area.
 
-[updates](features/updates.md)
+[updates](features/updates.md) · [relay](features/relay.md)
 
 The user-facing documentation, including the HTTP API, lives on the website,
 <https://fa-krug.github.io/zubi/>, built from [`site/`](../site); its API reference is generated from

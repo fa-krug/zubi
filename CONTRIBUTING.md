@@ -32,7 +32,7 @@ One repository, four things that ship, each released only when its own files cha
 | --- | --- | --- | --- |
 | `Sources/` | The Mac app: menu bar, Settings window, permissions, the EventKit and Notes readers, the self-updater | Swift, SwiftUI | `Zubi-Universal-<version>.zip`, tag `v<version>` |
 | `Packages/ZubiAPI/` | Everything HTTP: server, routes, key check, response types, `openapi.json`, `/docs`, and the contract tests | Swift (Hummingbird) | inside the app |
-| `cli/` | `zubi`, the command-line client | Go, standard library only | archives per platform, tag `cli/v<version>` |
+| `cli/` | `zubi`, the command-line client and relay | Go: the standard library, plus `golang.org/x/crypto` for the relay's certificates | archives per platform, tag `cli/v<version>` |
 | `site/` | The website at <https://fa-krug.github.io/zubi/>, including the generated API reference | HTML, CSS, a Python build script | GitHub Pages |
 
 Also in the repository:
@@ -48,7 +48,7 @@ You need:
 
 - **Xcode 26** (the app targets macOS 14 and later).
 - **XcodeGen**: `brew install xcodegen`.
-- **Go 1.24 or later**, for the CLI: `brew install go`.
+- **Go 1.26 or later**, for the CLI: `brew install go`.
 - **Python 3**, for the website. The one macOS ships is enough.
 
 Then, once per machine, create the **`Zubi Self-Signed`** code-signing identity, following
@@ -100,7 +100,10 @@ More detail, including the dev channel and Debug signing: [`docs/development.md`
   if a response doesn't match its schema exactly, or if an error the server can give isn't documented.
 - **The CLI tests** fail if the CLI calls an endpoint or sends a parameter the spec doesn't declare, if
   a response type doesn't match its schema field for field, or if a command, exit code or config rule
-  misbehaves.
+  misbehaves. They also run the relay's protocol end to end. Its certificate tests need Pebble,
+  Let's Encrypt's test CA, and are skipped without it: install it with
+  `go install github.com/letsencrypt/pebble/v2/cmd/pebble@v2.10.1` and run the tests with
+  `ZUBI_PEBBLE=$(go env GOPATH)/bin/pebble`. CI does.
 
 CI runs both on every pull request, and both release workflows refuse to publish when either fails.
 
@@ -130,7 +133,9 @@ ZUBI_URL=http://127.0.0.1:8797 ZUBI_API_KEY=<dev key> go run ./cmd/zubi events
 The dev build's keys are under **Settings › Keys** in Zubi Dev. Use `ZUBI_CONFIG=/tmp/zubi.json` to
 keep your experiments out of your real CLI settings. Every request the CLI makes is listed in
 `cmd/zubi/commands.go`; a new command starts there, and the usage text in `main.go` must name it (a test
-checks). See [cli/README.md](cli/README.md) for its behaviour and exit codes.
+checks). See [cli/README.md](cli/README.md) for its behaviour and exit codes. The relay, `zubi relay`, is
+in `internal/relay` and `internal/websocket`; its protocol and rules are in
+[docs/features/relay.md](docs/features/relay.md).
 
 ## Work on the website
 
@@ -183,7 +188,7 @@ project's secrets; you don't need them locally. Details: [`docs/release.md`](doc
 - Match the code around you: its naming, its idioms, and its comments, which explain *why* rather than
   *what*. Look before "fixing" something that seems wrong; it may be deliberate.
 - Swift: `.swift-format` at the repository root holds the formatter settings.
-- Go: `gofmt`, standard library only.
+- Go: `gofmt`, standard library only; the one exception is `golang.org/x/crypto/acme`, in `internal/relay`.
 - Website: plain HTML and CSS, system fonts.
 
 ## Ideas that would be welcome

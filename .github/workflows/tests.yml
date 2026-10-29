@@ -50,7 +50,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: cli/go.mod
-          cache-dependency-path: cli/go.mod
+          cache-dependency-path: cli/go.sum
 
       - name: Format
         run: |
@@ -63,9 +63,13 @@ jobs:
       - name: Vet
         run: go vet ./...
 
+      # Let's Encrypt's test CA, so the relay's certificate tests run against a real ACME server.
+      - name: Install Pebble
+        run: go install github.com/letsencrypt/pebble/v2/cmd/pebble@v2.10.1
+
       # Includes the drift tests: every request and response struct against openapi.json.
       - name: Test
-        run: go test ./...
+        run: ZUBI_PEBBLE="$(go env GOPATH)/bin/pebble" go test ./...
 
       - name: Cross-compile
         env:

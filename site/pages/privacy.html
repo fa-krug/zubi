@@ -51,6 +51,15 @@
 <h2>The command-line client</h2>
 <p><code>zubi</code> connects only to the Zubi address you configure. It stores that address and the key
   in a settings file readable only by your user account, and sends nothing anywhere else.</p>
+<p>The exception is <code>zubi relay</code>, which you run yourself, on a machine you choose, so a Mac
+  and its clients on different networks can reach each other. To get and renew its certificate, it
+  asks a STUN server run by Cloudflare or Google for its network’s public IP address, and requests the
+  certificate from Let’s Encrypt (Internet Security Research Group, USA), which connects back to that
+  address to check it. Both learn the address of the machine running the relay. Like every publicly
+  trusted certificate, it is recorded in public Certificate Transparency logs, so the address or
+  domain it certifies becomes public. Whoever runs a relay can see which addresses connect to it, when,
+  and how much they send; the relay holds no key to your data and logs no client addresses. Zubi runs
+  no relay of its own.</p>
 <h2>This website</h2>
 <p>This site is hosted by GitHub Pages, a service of GitHub, Inc., 88 Colin P Kelly Jr St, San
   Francisco, CA 94107, USA. When you visit, GitHub processes your IP address and technical request data
@@ -137,6 +146,16 @@
 <p><code>zubi</code> verbindet sich nur mit der eingerichteten Zubi-Adresse. Adresse und Schlüssel
   speichert er in einer Einstellungsdatei, die nur Ihr Benutzerkonto lesen kann, und sendet nichts an
   andere Stellen.</p>
+<p>Die Ausnahme ist <code>zubi relay</code>, das Sie selbst auf einem Rechner Ihrer Wahl betreiben,
+  damit ein Mac und seine Clients in verschiedenen Netzen einander erreichen. Um sein Zertifikat zu
+  beziehen und zu erneuern, fragt es einen STUN-Server von Cloudflare oder Google nach der öffentlichen
+  IP-Adresse seines Netzes und beantragt das Zertifikat bei Let’s Encrypt (Internet Security Research
+  Group, USA), das sich zur Prüfung mit dieser Adresse verbindet. Beide erfahren dabei die Adresse des
+  Rechners, auf dem das Relay läuft. Wie jedes öffentlich vertrauenswürdige Zertifikat wird es in
+  öffentlichen Certificate-Transparency-Logs verzeichnet; die zertifizierte Adresse oder Domain wird
+  damit öffentlich. Wer ein Relay betreibt, sieht, welche Adressen sich wann verbinden und wie viel sie
+  senden; das Relay hat keinen Schlüssel zu Ihren Daten und protokolliert keine Client-Adressen. Zubi
+  selbst betreibt kein Relay.</p>
 <h2>Diese Website</h2>
 <p>Diese Website wird von GitHub Pages bereitgestellt, einem Dienst der GitHub, Inc., 88 Colin P Kelly
   Jr St, San Francisco, CA 94107, USA. Beim Besuch verarbeitet GitHub Ihre IP-Adresse und technische

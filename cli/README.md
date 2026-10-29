@@ -3,8 +3,9 @@
 `zubi` reads and changes the Reminders, calendars and Notes that a Mac running
 [Zubi](../README.md) shares over its HTTP API. It runs on macOS, Linux and Windows, needs nothing
 on the Mac beyond Zubi itself, and prints either readable text or the API's JSON. It can also
-follow changes as they happen, hand calendar apps a subscription URL, and serve Zubi to AI
-assistants over the Model Context Protocol.
+follow changes as they happen, hand calendar apps a subscription URL, serve Zubi to AI
+assistants over the Model Context Protocol, and run a relay for a Mac and clients on different
+networks.
 
 ## What it can see and change
 
@@ -85,7 +86,7 @@ sudo install zubi_0.1.42_linux_arm64/zubi /usr/local/bin/
 go install github.com/fa-krug/zubi/cli/cmd/zubi@latest
 ```
 
-This needs Go 1.24 or later and puts `zubi` in `$(go env GOPATH)/bin`. A build from source
+This needs Go 1.26 or later and puts `zubi` in `$(go env GOPATH)/bin`. A build from source
 reports its version as `dev`.
 
 ## Configure
@@ -403,6 +404,115 @@ case $? in
 esac
 ```
 
+## Running a relay
+
+A relay is where a Mac running Zubi and its clients meet when they are on different networks, for
+example a MacBook on the road and a Raspberry Pi at home. Both connect out to the relay, so neither
+needs to accept connections, and the relay copies messages between them. What it copies is meant to
+be end-to-end encrypted between the Mac and the client, so the relay holds no key and can't read
+your data; it sees which addresses connect, when, and how much they send.
+
+> **Coming together in stages.** This release has the relay itself. Zubi for Mac and the client side
+> of `zubi` learn to connect through it in an upcoming release; until then nothing uses a relay.
+
+```sh
+zubi relay
+```
+
+With no flags, `zubi relay` finds this network's public IPv4 address, gets a certificate for it from
+Let's Encrypt, serves `wss://` on port 443, prints the address to use, and renews the certificate
+(which lasts six days) on its own. There is nothing to configure, but Let's Encrypt has to reach port
+443 of that address from the internet: it checks by connecting there. If it can't, the relay says why
+and exits; it never falls back to unencrypted `ws://`.
+
+```text
+Relay ready: wss://203.0.113.7
+```
+
+| Flag | Does |
+| --- | --- |
+| `--listen ADDR` | Listen here instead of `:443`. Let's Encrypt still connects to port 443, so forward that to this port. |
+| `--ip IP` | Certify this address instead of the one found automatically (IPv6 works too). |
+| `--domain NAME` | Certify a domain name pointing at this machine, such as a free DuckDNS name, so the address survives a new IP from your provider. |
+| `--state DIR` | Where the certificate and Let's Encrypt account key are kept (default `~/.config/zubi/relay`, readable only by you). |
+| `--acme-directory URL` | Another ACME certificate authority, such as Let's Encrypt's staging one for testing. |
+| `--behind-tls-proxy` | Serve plain HTTP on `$PORT` (else `:8080`) for a hosting platform or reverse proxy that serves `wss://` itself. WebSockets the proxy didn't receive over TLS are refused. |
+| `--no-tls` | Serve plain `ws://` on `$PORT` (else `:8080`). Only on a network you trust: the content stays end-to-end encrypted, but the metadata doesn't. |
+
+It stops on Ctrl-C or SIGTERM, exits with 1 when it can't start (no certificate, port taken) and
+with 2 on bad flags. The log goes to stderr: a line when a Mac connects or leaves, with the start of
+its room ID, and certificate renewals. It logs no client addresses.
+
+### Where to host it
+
+Pick the first that fits:
+
+1. **A machine at home, if you can forward a port.** A Raspberry Pi or anything else that's always on.
+   Nobody else is involved, and it costs nothing. Forward TCP port 443 on your router to the machine,
+   run `zubi relay` there as a service, and you're done. Two things to check: your connection must
+   have its own public IPv4 address (not carrier-grade NAT, common on mobile and some fibre lines;
+   if Let's Encrypt can't connect even with the port forwarded, ask your provider), and when your
+   provider changes that address, the relay's URL changes with it. The relay notices within an hour
+   and gets a new certificate, but the Mac and clients still have the old address; a free
+   [DuckDNS](https://www.duckdns.org) name with `--domain` avoids that.
+2. **Render's free web service, if you can't forward a port.** Render serves `wss://` with its own
+   certificate, so nothing at home is exposed. It sees the same metadata a relay does, never the
+   content. Free services sleep after 15 minutes without traffic; a connected Mac pings every 30
+   seconds, which keeps it awake, and 750 free hours a month cover one service running all month. If it does sleep,
+   the first connection takes about a minute.
+3. **A small server with a public IP address**, if you have one or want one: any VPS, or Oracle
+   Cloud's Always Free tier. Run `zubi relay` as at home; the address never changes. Oracle may
+   reclaim an Always Free machine that stays idle for a week, and a relay is mostly idle.
+4. **Your own reverse proxy or a Cloudflare Tunnel**, if you already run one with a domain: point it at
+   `zubi relay --behind-tls-proxy --listen 127.0.0.1:8080`. The proxy must pass WebSocket upgrades on
+   and set `X-Forwarded-Proto` (Caddy and `cloudflared` do both).
+
+Not a good fit: Google Cloud Run cuts every WebSocket after at most an hour, and its free tier needs a
+billing account that a connection open around the clock would soon draw on.
+
+#### As a service on Linux
+
+Save as `/etc/systemd/system/zubi-relay.service`, then
+`sudo systemctl enable --now zubi-relay` and `journalctl -u zubi-relay` to see its address:
+
+```ini
+[Unit]
+Description=Zubi relay
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/zubi relay --listen :8443 --state /var/lib/zubi-relay
+DynamicUser=yes
+StateDirectory=zubi-relay
+Restart=on-failure
+# Let's Encrypt allows five failed checks per address an hour, so don't retry faster.
+RestartSec=15min
+
+[Install]
+WantedBy=multi-user.target
+```
+
+This listens on 8443, so the router forwards its port 443 to the machine's 8443 and the relay needs
+no privileges. To listen on 443 directly, use `--listen :443` and add
+`AmbientCapabilities=CAP_NET_BIND_SERVICE` under `[Service]`.
+
+#### On Render
+
+New › Web Service › Public Git Repository `https://github.com/fa-krug/zubi`, then:
+
+| Setting | Value |
+| --- | --- |
+| Language | Go |
+| Root Directory | `cli` |
+| Build Command | `go build -o zubi ./cmd/zubi` |
+| Start Command | `./zubi relay --behind-tls-proxy` |
+| Instance Type | Free |
+| Health Check Path | `/health` (under Advanced) |
+
+The relay's address is the service's URL with `wss://`, such as `wss://zubi-relay.onrender.com`.
+Deploying again picks up a newer `zubi`.
+
 ## The API
 
 `zubi` is a thin client. The API it calls is described by an OpenAPI document that Zubi serves
@@ -416,7 +526,8 @@ the two don't drift apart.
 
 ## Development
 
-The CLI is a Go module in `cli/` of the Zubi repository, using only the standard library.
+The CLI is a Go module in `cli/` of the Zubi repository. It uses only the standard library, except
+for the relay's certificates: `internal/relay` uses `golang.org/x/crypto/acme`.
 
 ```sh
 cd cli
@@ -439,3 +550,10 @@ parameters and body properties (names, types, enums, bounds, required), that eve
 assistant could use has a tool, and drive every tool through `zubi mcp` against the fake. The
 multicast DNS encoder and decoder behind `config discover` (`cmd/zubi/dns.go`) are tested with
 crafted packets, so no test needs the network.
+
+The relay (`internal/relay`, `internal/websocket`) has its own tests: WebSocket framing, the relay
+protocol from registration to a closed session, limits and STUN. Its certificate tests need Pebble,
+Let's Encrypt's test CA, and are skipped without it:
+`ZUBI_PEBBLE=$(go env GOPATH)/bin/pebble go test ./internal/relay/` after
+`go install github.com/letsencrypt/pebble/v2/cmd/pebble@v2.10.1`. The protocol and the relay's rules
+are in [docs/features/relay.md](../docs/features/relay.md).

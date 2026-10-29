@@ -42,8 +42,9 @@ pull request. `openapi.json` is the contract, and it is checked from both sides:
   compiles against the package.
 - **CLI** (`ubuntu-latest`): `gofmt`, `go vet`, and `go test`, whose drift tests require every request
   in `cmd/zubi/commands.go` to exist in the spec with only declared parameters, every response struct
-  to match its schema field for field, and the fixtures to validate against the spec; then a
-  cross-compile for every platform the release ships.
+  to match its schema field for field, and the fixtures to validate against the spec. The job installs
+  Pebble, Let's Encrypt's test CA, so the relay's certificate tests run against a real ACME server.
+  Then a cross-compile for every platform the release ships.
 
 ## The app
 
@@ -87,7 +88,7 @@ cross-compiles everything else from the same runner with `CGO_ENABLED=0`:
    it online the first time it runs.
 3. **Package** one archive per platform, `zubi_<version>_<os>_<arch>.tar.gz` (`.zip` on Windows),
    each holding the binary, `README.md`, Zubi's MIT `LICENSE` and Go's `LICENSE.go` for the runtime
-   linked into it; plus `zubi_<version>_checksums.txt` (SHA-256).
+   and `golang.org/x/crypto` linked into it (both under that same licence); plus `zubi_<version>_checksums.txt` (SHA-256).
 4. **Publish** a GitHub Release `cli/v<version>`, notes since the previous `cli/v` tag, with
    `--latest=false`, so the Latest badge and README's latest-release link keep pointing at the app.
 
