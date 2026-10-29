@@ -1,0 +1,8 @@
+{"folders":[
+{"id":"F1","name":"Notes","account":"iCloud","writable":true},
+{"id":"F2","name":"Recipes","account":"iCloud","parentID":"F1","writable":true},
+{"id":"F3","name":"Baking","account":"iCloud","parentID":"F2","writable":true},
+{"id":"F4","name":"Travel","account":"iCloud","parentID":"F1","writable":false},
+{"id":"F5","name":"Shared","account":"iCloud","parentID":"F-hidden","writable":false},
+{"id":"F6","name":"Work","account":"On My Mac","writable":true}
+]}

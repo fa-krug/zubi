@@ -1,0 +1,5 @@
+{"reminders":[
+{"id":"R1","title":"Buy milk","notes":"2 litres","listID":"L1","listTitle":"Groceries","isCompleted":false,"priority":1,"due":"2026-11-02","dueAllDay":true},
+{"id":"R2","title":"Call plumber","listID":"L2","listTitle":"Errands","isCompleted":false,"priority":5,"due":"2026-11-03T08:00:00Z","dueAllDay":false},
+{"id":"R3","title":"Return book","listID":"L2","listTitle":"Errands","isCompleted":true,"priority":0,"dueAllDay":false}
+]}

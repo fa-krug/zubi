@@ -1,0 +1,5 @@
+{"events":[
+{"id":"E1","title":"Team offsite","start":"2026-11-02","end":"2026-11-02","isAllDay":true,"location":"Lake House\nPier 4","calendarID":"C1","calendarTitle":"Work"},
+{"id":"E2","title":"Standup","start":"2026-11-02T09:00:00Z","end":"2026-11-02T09:15:00Z","isAllDay":false,"notes":"Bring numbers","url":"https://meet.example.com/standup","calendarID":"C1","calendarTitle":"Work"},
+{"id":"E3","title":"Dinner","start":"2026-11-03T18:30:00Z","end":"2026-11-03T20:00:00Z","isAllDay":false,"calendarID":"C2","calendarTitle":"Personal"}
+]}
