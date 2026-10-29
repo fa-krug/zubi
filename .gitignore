@@ -1,0 +1,24 @@
+# macOS
+.DS_Store
+
+# Xcode
+DerivedData/
+*.xcworkspace/xcuserdata/
+*.xcuserdatad/
+*.xcuserstate
+
+# Swift tooling
+.swiftpm/
+.build/
+
+# Build output
+build/
+dist/
+
+# Temporary files
+*.swp
+*.tmp
+*.orig
+
+# The original source drop
+Zubi.zip

@@ -1,0 +1,81 @@
+name: Bug Report
+description: Report a bug running Zubi
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: checkboxes
+    id: existing-search
+    attributes:
+      label: Existing issues
+      options:
+        - label: I searched open and closed issues and didn't find this already reported
+          required: false
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where does it happen?
+      multiple: true
+      options:
+        - Reminders
+        - Calendar
+        - Notes
+        - API / server (auth, binding, responses)
+        - Setup window or menu bar
+        - Updates
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      placeholder: |
+        What you did, what you expected, what you got instead.
+        For an API bug: the exact request (key redacted) and the response.
+    validations:
+      required: true
+  - type: textarea
+    id: repro-steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots, recording or log
+      description: >
+        Drag and drop images or a recording here, or paste the log lines from the menu bar popover.
+        Never paste your API key.
+    validations:
+      required: false
+  - type: input
+    id: version
+    attributes:
+      label: Zubi version
+      description: Shown in Setup under "8. Updates".
+      placeholder: 0.1.42
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      placeholder: "15.5"
+    validations:
+      required: true
+  - type: checkboxes
+    id: willing
+    attributes:
+      label: Contribution
+      description: >
+        **Ticking this is not permission to start.** Wait until a maintainer labels this issue
+        `approved` — that label is the only green light. Docs-only changes are the exception. Read
+        [CONTRIBUTING.md](https://github.com/fa-krug/zubi/blob/main/CONTRIBUTING.md)
+        first — it is what your PR is held to.
+      options:
+        - label: I'm willing to implement this myself **once this issue is labelled `approved`**
+          required: false

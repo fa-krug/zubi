@@ -1,0 +1,164 @@
+name: Release
+
+# Every push to main ships: a Developer ID signed, notarized universal build, published as the
+# GitHub Release the in-app updater reads. See docs/release.md.
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode 26
+        run: |
+          XCODE_PATH="$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -n1)"
+          if [ -z "$XCODE_PATH" ]; then
+            echo "::error::No Xcode 26.x found on this runner. Installed Xcodes:"
+            ls /Applications | grep -i xcode || true
+            exit 1
+          fi
+          echo "Using $XCODE_PATH"
+          echo "DEVELOPER_DIR=$XCODE_PATH/Contents/Developer" >> "$GITHUB_ENV"
+
+      # The patch is the run number, so every push is strictly newer than the last and the updater
+      # offers it. Bump MAJOR.MINOR in project.yml when a release deserves it.
+      - name: Compute version
+        id: meta
+        run: |
+          BASE="$(awk -F'"' '/MARKETING_VERSION:/ { print $2; exit }' project.yml)"
+          VERSION="${BASE%.*}.${GITHUB_RUN_NUMBER}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "zip_file=Zubi-Universal-${VERSION}.zip" >> "$GITHUB_OUTPUT"
+
+      # Users' Reminders, Calendar and Automation grants and the updater pin the team, not this certificate, so a renewed
+      # Developer ID certificate drops in here with nothing else changing. See docs/signing.md.
+      - name: Import signing certificate
+        env:
+          P12_BASE64: ${{ secrets.DEVELOPER_ID_P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.DEVELOPER_ID_P12_PASSWORD }}
+        run: |
+          if [ -z "${P12_BASE64}" ]; then
+            echo "::error::DEVELOPER_ID_P12_BASE64 is not set — see docs/signing.md."
+            exit 1
+          fi
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          KPW="$(openssl rand -base64 24)"
+          echo "${P12_BASE64}" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$KPW" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KPW" "$KEYCHAIN"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" -P "${P12_PASSWORD}" -A -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KPW" "$KEYCHAIN" >/dev/null
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | sed 's/"//g')
+          rm -f "$RUNNER_TEMP/cert.p12"
+
+      # One universal build serves every Mac: Intel takes it, and Apple silicon falls back to it.
+      - name: Build app
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          # Nobody is there to trust a package plugin, so a headless build skips the prompt.
+          xcodebuild -project Zubi.xcodeproj -scheme Zubi -configuration Release \
+            -skipPackagePluginValidation -derivedDataPath "$RUNNER_TEMP/DerivedData" \
+            ARCHS="arm64 x86_64" ONLY_ACTIVE_ARCH=NO \
+            CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="Developer ID Application" \
+            DEVELOPMENT_TEAM=HS26J3YA63 OTHER_CODE_SIGN_FLAGS="--timestamp" \
+            MARKETING_VERSION="$VERSION" CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" \
+            build
+
+      # The updater offers Intel Macs only a universal zip, so a thin build must never ship as one.
+      - name: Assert both slices on the shipping binary
+        run: |
+          APP="$RUNNER_TEMP/DerivedData/Build/Products/Release/Zubi.app"
+          for BIN in "$APP/Contents/MacOS/Zubi"; do
+            SLICES="$(lipo -archs "$BIN")"
+            for A in arm64 x86_64; do
+              case " $SLICES " in
+                *" $A "*) ;;
+                *) echo "::error::${BIN##*/}: missing $A (got '$SLICES')"; exit 1 ;;
+              esac
+            done
+          done
+
+      - name: Assert the signature is sound
+        run: ./Scripts/verify-signature.sh "$RUNNER_TEMP/DerivedData/Build/Products/Release/Zubi.app"
+
+      # Read from the shipped source, so the release is checked against exactly what the updater pins.
+      - name: Assert the updater will trust it
+        run: |
+          REQ="$(awk '/developerID = """/ { on = 1; next } on && /"""/ { exit } on' \
+            Sources/Updates/Service/BundleSignature.swift |
+            sed -e 's/\\$//' -e 's/^ *//' | tr '\n' ' ')"
+          if [ -z "${REQ// }" ]; then
+            echo "::error::Could not read BundleSignature.developerID"
+            exit 1
+          fi
+          codesign --verify --deep --strict --test-requirement="=$REQ" \
+            "$RUNNER_TEMP/DerivedData/Build/Products/Release/Zubi.app"
+
+      # Stapling puts the ticket in the bundle, so Gatekeeper's first launch needs no network.
+      - name: Notarize and staple
+        env:
+          KEY_BASE64: ${{ secrets.NOTARY_API_KEY_BASE64 }}
+          KEY_ID: ${{ secrets.NOTARY_API_KEY_ID }}
+          ISSUER_ID: ${{ secrets.NOTARY_API_ISSUER_ID }}
+        run: |
+          if [ -z "${KEY_BASE64}" ] || [ -z "${KEY_ID}" ] || [ -z "${ISSUER_ID}" ]; then
+            echo "::error::A NOTARY_API_* secret is not set — see docs/signing.md."
+            exit 1
+          fi
+          APP="$RUNNER_TEMP/DerivedData/Build/Products/Release/Zubi.app"
+          KEY="$RUNNER_TEMP/AuthKey.p8"
+          echo "${KEY_BASE64}" | base64 --decode > "$KEY"
+          trap 'rm -f "$KEY"' EXIT
+          AUTH=(--key "$KEY" --key-id "${KEY_ID}" --issuer "${ISSUER_ID}")
+          ditto -c -k --keepParent --sequesterRsrc "$APP" "$RUNNER_TEMP/notarize.zip"
+          RESULT="$(xcrun notarytool submit "$RUNNER_TEMP/notarize.zip" "${AUTH[@]}" \
+            --wait --timeout 1h --output-format json)"
+          echo "$RESULT"
+          STATUS="$(plutil -extract status raw -o - - <<< "$RESULT")"
+          if [ "$STATUS" != "Accepted" ]; then
+            xcrun notarytool log "$(plutil -extract id raw -o - - <<< "$RESULT")" "${AUTH[@]}" || true
+            echo "::error::Notarization finished as '$STATUS'"
+            exit 1
+          fi
+          xcrun stapler staple "$APP"
+          xcrun stapler validate "$APP"
+
+      - name: Assert Gatekeeper accepts it
+        run: spctl --assess --type execute -vv "$RUNNER_TEMP/DerivedData/Build/Products/Release/Zubi.app"
+
+      # `ditto -c -k --keepParent --sequesterRsrc` is the only zip that leaves the code signature
+      # verifiable; plain `zip` drops symlinks and the updater would refuse every update.
+      - name: Package
+        env:
+          ZIP_FILE: ${{ steps.meta.outputs.zip_file }}
+        run: |
+          mkdir -p dist
+          ditto -c -k --keepParent --sequesterRsrc \
+            "$RUNNER_TEMP/DerivedData/Build/Products/Release/Zubi.app" "dist/${ZIP_FILE}"
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.meta.outputs.version }}
+          ZIP_FILE: ${{ steps.meta.outputs.zip_file }}
+        run: |
+          gh release create "v${VERSION}" "dist/${ZIP_FILE}" \
+            --target "$GITHUB_SHA" \
+            --title "Zubi ${VERSION}" \
+            --generate-notes \
+            --latest

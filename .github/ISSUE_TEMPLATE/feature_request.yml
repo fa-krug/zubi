@@ -1,0 +1,48 @@
+name: Feature Request
+description: Suggest an idea
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part of Zubi?
+      multiple: true
+      options:
+        - Reminders
+        - Calendar
+        - Notes
+        - API / server
+        - Setup window or menu bar
+        - Updates
+        - Something new
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What should it do?
+      description: For an API change, sketch the request and the response you'd want.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why does it belong in Zubi?
+      description: >
+        Zubi stays small on purpose — quality over quantity. Tell us what you'd use it for, and why
+        it is worth its weight.
+    validations:
+      required: true
+  - type: checkboxes
+    id: willing
+    attributes:
+      label: Contribution
+      description: >
+        **Ticking this is not permission to start.** Wait until a maintainer labels this issue
+        `approved` — that label is the only green light. Docs-only changes are the exception. Read
+        [CONTRIBUTING.md](https://github.com/fa-krug/zubi/blob/main/CONTRIBUTING.md)
+        first — it is what your PR is held to.
+      options:
+        - label: I'm willing to implement this myself **once this issue is labelled `approved`**
+          required: false
