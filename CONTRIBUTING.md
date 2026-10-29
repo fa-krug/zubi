@@ -148,7 +148,9 @@ python3 -m http.server 8800 --directory _site    # open http://localhost:8800
 Page bodies live in `site/pages/`, each starting with a JSON comment that sets its title, description
 and menu entry; the build wraps them in the shared header and footer and generates `api.html` from the
 spec. Two rules: the site loads **no external fonts, scripts or trackers** (its privacy policy promises
-that), and the legal pages keep their English and German versions in step.
+that), and the legal pages keep their English and German versions in step. `site/install.sh`, the
+CLI's installer, is published as it is; keep it POSIX `sh` (CI runs `shellcheck` on it) and in step
+with the release archives' names.
 
 ## How releases happen
 

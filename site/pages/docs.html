@@ -286,7 +286,13 @@
   it, for macOS, Linux (including a Raspberry Pi) and Windows.</p>
 
 <h3 id="cli-install">Install</h3>
-<p>On macOS and Linux, with <a href="https://brew.sh">Homebrew</a>:</p>
+<p>On Linux, a Raspberry Pi (including 32-bit Raspberry Pi OS) or a Mac, in one line:</p>
+<pre>curl -fsSL https://fa-krug.github.io/zubi/install.sh | sh</pre>
+<p>It picks the build for the machine, checks it against the release’s checksums and installs it in
+  <code>/usr/local/bin</code>, asking for <code>sudo</code> only if that needs it; run it again to
+  update. <code>ZUBI_INSTALL_DIR=$HOME/.local/bin</code> installs without <code>sudo</code>. The
+  Raspberry Pi Zero and Pi 1 have no build.</p>
+<p>On macOS and Linux, also with <a href="https://brew.sh">Homebrew</a>:</p>
 <pre>brew install fa-krug/tap/zubi</pre>
 <p>On Windows, with <a href="https://scoop.sh">Scoop</a>:</p>
 <pre>scoop bucket add fa-krug https://github.com/fa-krug/scoop-bucket

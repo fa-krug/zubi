@@ -20,7 +20,7 @@ the API (`cli/`). The API's contract is
 | `cli/` | the `zubi` CLI and relay, a Go module (`github.com/fa-krug/zubi/cli`) on the standard library plus `golang.org/x/crypto` for the relay's ACME client; every request it makes is in `cmd/zubi/commands.go`, the relay is `internal/relay`, sessions through it `internal/tunnel` and `internal/noise` |
 | `Sources/Updates/` | the self-updater, ported from Blitz: `Model/`, `Service/`, `UI/` |
 | `Scripts/` | `verify-signature.sh` and `set-release-secrets.sh` for releases, `gen-notice.py` for `NOTICE.md` |
-| `site/` | the website at <https://fa-krug.github.io/zubi/>: page bodies in `pages/`, shared styles in `assets/`, and `tools/build.py`, which wraps the pages in the shared layout and generates `api.html` from `openapi.json` |
+| `site/` | the website at <https://fa-krug.github.io/zubi/>: page bodies in `pages/`, shared styles in `assets/`, `install.sh` (the CLI's installer, published as is), and `tools/build.py`, which wraps the pages in the shared layout and generates `api.html` from `openapi.json` |
 | `.github/workflows/` | `tests.yml` (the drift gate), `release.yml` (the app), `release-cli.yml` (the CLI), `pages.yml` (the website) |
 | `docs/` | everything longer than a line here; start at [docs/README.md](docs/README.md) |
 
@@ -102,6 +102,7 @@ Any doc your change makes wrong is fixed in the same commit:
 | anything a user sees in Settings, the setup flow, or what the app sends where | `site/pages/docs.html`, the home page's setup steps, and `site/pages/privacy.html` if a connection changes |
 | `project.yml`, the toolchain, the build command, the dev channel | [development.md](docs/development.md) |
 | a workflow, the version scheme, the secrets | [release.md](docs/release.md) |
+| the CLI's release archive names or platforms | `site/install.sh`, which downloads them by name |
 | entitlements, usage strings, signing identities, `BundleSignature` | [signing.md](docs/signing.md) |
 | anything under `Sources/Updates/` | [features/updates.md](docs/features/updates.md) |
 | the relay's protocol, limits, certificates or flags, the session handshake, pairing codes | [features/relay.md](docs/features/relay.md), the relay sections of [cli/README.md](cli/README.md) and `site/pages/docs.html`; for the handshake, key derivation or pairing format, regenerate `Packages/ZubiAPI/Tests/Fixtures/relay-noise-vectors.json` and keep the Go and Swift sides passing it |

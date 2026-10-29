@@ -207,6 +207,8 @@ def main():
     OUT.mkdir(parents=True)
     shutil.copytree(SITE / "assets", OUT / "assets")
     shutil.copy(SITE / "favicon.svg", OUT / "favicon.svg")
+    # `curl -fsSL https://fa-krug.github.io/zubi/install.sh | sh` installs the CLI.
+    shutil.copy(SITE / "install.sh", OUT / "install.sh")
     shutil.copy(SPEC, OUT / "openapi.json")
     # Pages runs Jekyll on artifacts without this, which would drop nothing today but costs time.
     (OUT / ".nojekyll").write_text("")

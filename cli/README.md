@@ -41,6 +41,29 @@ write, so you can take it back without touching the others.
 
 ## Install
 
+### Install script (Linux, Raspberry Pi, macOS)
+
+```sh
+curl -fsSL https://fa-krug.github.io/zubi/install.sh | sh
+```
+
+The quickest way on a Raspberry Pi, and the only one-line install for 32-bit Raspberry Pi OS. It
+picks the build for the machine (Linux on x86-64, 64-bit ARM or 32-bit ARMv7, or macOS), downloads
+it from the newest CLI release, checks it against the release's SHA-256 checksums, and installs
+`zubi` in `/usr/local/bin`, asking for `sudo` only if that needs it. Run it again to update; it says
+so when `zubi` is already current.
+
+- `ZUBI_VERSION=0.1.42` installs that version instead of the newest.
+- `ZUBI_INSTALL_DIR=$HOME/.local/bin` installs there, without `sudo`.
+
+```sh
+curl -fsSL https://fa-krug.github.io/zubi/install.sh | ZUBI_INSTALL_DIR=$HOME/.local/bin sh
+```
+
+It needs `curl` or `wget`, and `tar`. To read it before running it, download it first:
+`curl -fsSLO https://fa-krug.github.io/zubi/install.sh`, then `sh install.sh`. The Raspberry Pi Zero
+and Pi 1 (ARMv6) have no build.
+
 ### Homebrew (macOS and Linux)
 
 ```sh
@@ -48,7 +71,7 @@ brew install fa-krug/tap/zubi
 ```
 
 `brew upgrade` keeps it current. Homebrew on Linux covers x86-64 and ARM64; for 32-bit Raspberry Pi
-OS, use the ARMv7 archive below.
+OS, use the install script above or the ARMv7 archive below.
 
 ### Scoop (Windows)
 
