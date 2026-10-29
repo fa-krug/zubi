@@ -53,7 +53,8 @@
         <div>
           <h3>A Raspberry Pi display</h3>
           <p>Put today’s events and the shopping list on a screen by the front door or the fridge.
-            The Pi reaches your Mac through an SSH tunnel or your Tailscale network.</p>
+            The Pi reaches your Mac through a relay, end-to-end encrypted, an SSH tunnel or your
+            Tailscale network.</p>
         </div>
 <pre>zubi events
 zubi reminders --list Groceries</pre>
@@ -140,9 +141,11 @@ zubi notes --folder Recipes</pre>
       </li>
     </ol>
     <div class="callout">
-      <p><strong>Reading from another device?</strong> At first Zubi only answers on your Mac. Tunnel
-        to it with <code>ssh -N -L 8787:localhost:8787 you@mac.local</code>, or bind it to your
-        Tailscale address under <strong>Settings › Server</strong>.</p>
+      <p><strong>Reading from another device?</strong> At first Zubi only answers on your Mac. From
+        any network, <a href="docs.html#relay">go through a relay</a>: turn it on under
+        <strong>Settings › Server</strong> and run <code>zubi pair</code> with a key’s pairing code. Or
+        tunnel to it with <code>ssh -N -L 8787:localhost:8787 you@mac.local</code>, or bind it to your
+        Tailscale address.</p>
       <p>Then <a href="docs.html#cli">install the command-line client</a> on that device, or call the
         API directly.</p>
     </div>

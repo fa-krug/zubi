@@ -29,7 +29,8 @@
         <li><a href="#cli-commands">Commands</a></li>
         <li><a href="#agents">For agents and scripts</a></li>
         <li><a href="#mcp">Claude Desktop and MCP</a></li>
-        <li><a href="#relay">Running a relay</a></li>
+        <li><a href="#relay">Through a relay</a></li>
+        <li><a href="#relay-server">Running a relay</a></li>
       </ol>
     </li>
     <li><a href="#updates">Updates</a></li>
@@ -103,10 +104,10 @@
     <tr><td><strong>General</strong></td><td>Launch at login, keeping the Mac awake while Zubi serves,
       automatic update checks, the installed version, and Check for Updates.</td></tr>
     <tr><td><strong>Server</strong></td><td>Whether the server is running, where it listens (address
-      and port), and the most recent requests.</td></tr>
+      and port), the relay it connects through, and the most recent requests.</td></tr>
     <tr><td><strong>Keys</strong></td><td>One key per device, each Read or Read &amp; Write: add, copy,
-      rename, regenerate or delete them, copy calendar subscription links, and open the API docs
-      served by your Mac.</td></tr>
+      rename, regenerate or delete them, copy pairing codes and calendar subscription links, and open
+      the API docs served by your Mac.</td></tr>
     <tr><td><strong>Activity</strong></td><td>Everything created or edited through the API: when, by
       which key, and where.</td></tr>
     <tr><td><strong>Reminders</strong></td><td>Access to Reminders, and which lists to share, grouped by
@@ -194,8 +195,12 @@
 
 <h2 id="network">Reaching Zubi from other devices</h2>
 <p>At first Zubi answers only on your Mac (<code>127.0.0.1</code>), so nothing on your network can
-  reach it by accident. There are three ways to open it up, set under <strong>Settings › Server</strong>:</p>
+  reach it by accident. There are four ways to open it up, set under <strong>Settings › Server</strong>:</p>
 <dl>
+  <dt>Through a relay, from anywhere</dt>
+  <dd>Zubi connects out to a relay, and devices on other networks reach it there, with each session
+    encrypted end to end with the device’s key: the relay can’t read anything, and nothing on your Mac
+    accepts connections from the internet. See <a href="#relay">Through a relay</a>.</dd>
   <dt>Keep it local and tunnel to it (the safest)</dt>
   <dd>Leave <strong>Bind to</strong> on <em>Localhost only</em>, turn on Remote Login on the Mac, and
     from the other device run <code>ssh -N -L 8787:localhost:8787 you@mac.local</code>. On that device,
@@ -340,6 +345,8 @@ zubi health               <span class="dim"># checks that Zubi answers</span></p
     <tr><td><code>zubi watch</code></td><td>A line whenever something changes; <code>--exec</code> runs a command each time</td></tr>
     <tr><td><code>zubi feed CALENDAR</code></td><td>The calendar’s subscription link for calendar apps</td></tr>
     <tr><td><code>zubi mcp</code></td><td>Serve Zubi to AI assistants (see below)</td></tr>
+    <tr><td><code>zubi pair CODE</code></td><td>Reach Zubi through a relay from now on, with a pairing code from <strong>Settings › Keys</strong> (see below)</td></tr>
+    <tr><td><code>zubi tunnel</code></td><td>Serve Zubi through the relay at <code>http://127.0.0.1:8787</code>, for other programs; <code>--listen</code></td></tr>
     <tr><td><code>zubi relay</code></td><td>Run a relay for a Mac and clients on different networks (see below)</td></tr>
     <tr><td><code>zubi key</code></td><td>The name and access of the key in use</td></tr>
     <tr><td><code>zubi health</code></td><td>Whether Zubi answers, and with which key</td></tr>
@@ -404,15 +411,26 @@ zubi reminders add "Call the plumber" --list Errands --due 2026-11-03T09:00 --js
 <p>In Claude Code: <code>claude mcp add zubi -- zubi mcp</code>, after <code>zubi config</code> is set up.
   The assistant sees which items are writable, and with a Read key it can’t change anything at all.</p>
 
-<h3 id="relay">Running a relay</h3>
+<h3 id="relay">Through a relay</h3>
 <p>A relay is where a Mac running Zubi and its clients meet when they are on different networks, such
   as a MacBook on the road and a Raspberry Pi at home. Both connect out to it and it copies messages
-  between them, so neither has to accept connections. What it copies is meant to be end-to-end
-  encrypted between the Mac and the client: the relay holds no key and sees only which addresses
+  between them, so neither has to accept connections. Each session is encrypted end to end between
+  the Mac and the device, with the device’s key: the relay holds no key and sees only which addresses
   connect, when, and how much they send.</p>
-<p><strong>Coming together in stages:</strong> this release of <code>zubi</code> has the relay itself.
-  Zubi for Mac and the client side of <code>zubi</code> learn to connect through it in an upcoming
-  release; until then nothing uses a relay.</p>
+<ol>
+  <li>Run a relay, as below, or use one you already have.</li>
+  <li>On the Mac, under <strong>Settings › Server › Relay</strong>, turn on <strong>Connect through a
+    relay</strong>, enter its <code>wss://</code> address and click <strong>Apply</strong>.</li>
+  <li>Under <strong>Settings › Keys</strong>, choose <strong>Copy Pairing Code</strong> in the device’s
+    key’s menu. The code holds the key, so keep it as secret.</li>
+  <li>On the device, run <code>zubi pair -</code> and paste it. <code>zubi</code> checks it with the Mac
+    through the relay, saves it, and from then on every command goes through the relay.</li>
+</ol>
+<p>For other programs on that device, <code>zubi tunnel</code> serves Zubi at
+  <code>http://127.0.0.1:8787</code>, each connection through the relay. Requests still need the key,
+  as on the Mac.</p>
+
+<h3 id="relay-server">Running a relay</h3>
 <pre>zubi relay
 <span class="dim">Relay ready: wss://203.0.113.7</span></pre>
 <p>With no flags it finds the network’s public IPv4 address, gets a six-day certificate for it from
@@ -458,8 +476,8 @@ zubi reminders add "Call the plumber" --list Errands --due 2026-11-03T09:00 --js
   <li>Every API request needs the key: 32 random bytes generated on your Mac, kept in its Keychain,
     compared in constant time. <strong>Regenerate</strong> replaces it immediately.</li>
   <li>The server listens only on your Mac until you change that.</li>
-  <li>Zubi doesn’t encrypt traffic itself. Beyond your Mac, use an SSH tunnel or an encrypted network
-    such as Tailscale.</li>
+  <li>The API itself is plain HTTP. Beyond your Mac, use a relay, whose sessions Zubi encrypts end to end
+    with the device’s key, an SSH tunnel, or an encrypted network such as Tailscale.</li>
   <li>The API never deletes anything, and never touches a locked note.</li>
 </ul>
 <p>Found a vulnerability? Please report it privately, as described in the
@@ -485,6 +503,12 @@ zubi reminders add "Call the plumber" --list Errands --due 2026-11-03T09:00 --js
   <dt>Notes answers 503</dt>
   <dd>Zubi may not control Notes. Allow it under System Settings › Privacy &amp; Security › Automation ›
     Zubi › Notes, then click <strong>Grant Access</strong> under Settings › Notes.</dd>
+  <dt><code>zubi pair</code> says the key was refused</dt>
+  <dd>The key was deleted or regenerated after the code was copied. Copy a new pairing code from
+    <strong>Settings › Keys</strong>.</dd>
+  <dt>“The Mac isn’t connected to the relay”</dt>
+  <dd>Check <strong>Settings › Server › Relay</strong> on the Mac: it should say
+    <strong>Connected</strong>, and the server must be running. The Mac has to be awake.</dd>
   <dt>Another device can’t reach Zubi</dt>
   <dd>Check that the server is running (solid icon), that it listens on an address that device can
     reach (see <a href="#network">Other devices</a>), and that the Mac is awake. <code>zubi health</code>

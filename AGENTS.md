@@ -16,8 +16,8 @@ the API (`cli/`). The API's contract is
 | `Sources/App/` | `@main` (`ZubiApp`), `BridgeController` (owns the server, access state and settings), the menu bar popover, `KeyStore` (the per-device keys, one Keychain item), `ActivityLog`, `KeepAwake`, `Bonjour`, `AppPaths` |
 | `Sources/EventKit/` | `RemindersService` and `CalendarService`, actors over their own `EKEventStore`, conforming to the package's source protocols |
 | `Sources/Notes/` | `NotesService` and `JXARunner`: Notes read through `osascript` JavaScript for Automation |
-| `Packages/ZubiAPI/` | everything HTTP, as a local Swift package: the server, routes, bearer-key middleware, DTOs, the source protocols, `/openapi.json` and `/docs`, and the contract tests (`swift test`) |
-| `cli/` | the `zubi` CLI and relay, a Go module (`github.com/fa-krug/zubi/cli`) on the standard library plus `golang.org/x/crypto` for the relay's ACME client; every request it makes is in `cmd/zubi/commands.go`, the relay is `internal/relay` |
+| `Packages/ZubiAPI/` | everything HTTP, as a local Swift package: the server, routes, bearer-key middleware, DTOs, the source protocols, `/openapi.json` and `/docs`, the Mac's side of the relay (`Relay/`: Noise, pairing codes, `RelayHost`), and the tests (`swift test`) |
+| `cli/` | the `zubi` CLI and relay, a Go module (`github.com/fa-krug/zubi/cli`) on the standard library plus `golang.org/x/crypto` for the relay's ACME client; every request it makes is in `cmd/zubi/commands.go`, the relay is `internal/relay`, sessions through it `internal/tunnel` and `internal/noise` |
 | `Sources/Updates/` | the self-updater, ported from Blitz: `Model/`, `Service/`, `UI/` |
 | `Scripts/` | `verify-signature.sh` and `set-release-secrets.sh` for releases, `gen-notice.py` for `NOTICE.md` |
 | `site/` | the website at <https://fa-krug.github.io/zubi/>: page bodies in `pages/`, shared styles in `assets/`, and `tools/build.py`, which wraps the pages in the shared layout and generates `api.html` from `openapi.json` |
@@ -77,8 +77,11 @@ Full local loop: [development.md](docs/development.md).
   `personal-information.calendars` (Reminders and Calendar) and `automation.apple-events` (Notes).
   See [signing.md](docs/signing.md#hardened-runtime).
 - **Notes script arguments go through `run(argv)`**, never interpolated into JXA source.
-- **The relay holds no key and never falls back to plain.** Without a certificate it exits; plain
-  `ws://` takes `--no-tls`. See [relay.md](docs/features/relay.md#invariants).
+- **The relay holds no key and never falls back to plain.** Sessions through it are end-to-end
+  encrypted between the Mac and the device, with the device key, and end in Zubi's own server, so the
+  key check and Settings apply as to any request. Without a certificate the relay exits; plain `ws://`
+  takes `--no-tls`, and neither the app nor `zubi pair` uses a `ws://` relay. See
+  [relay.md](docs/features/relay.md#invariants).
 - **`BundleSignature.developerID` is read by the release workflow.** Keep it a single triple-quoted
   string literal, and change it only together with the signing team.
 - **The update feed is `fa-krug/zubi`**, named once in `ReleaseFeed.repository`. Release assets must
@@ -101,7 +104,7 @@ Any doc your change makes wrong is fixed in the same commit:
 | a workflow, the version scheme, the secrets | [release.md](docs/release.md) |
 | entitlements, usage strings, signing identities, `BundleSignature` | [signing.md](docs/signing.md) |
 | anything under `Sources/Updates/` | [features/updates.md](docs/features/updates.md) |
-| the relay's protocol, limits, certificates or flags | [features/relay.md](docs/features/relay.md), the relay section of [cli/README.md](cli/README.md) and `site/pages/docs.html` |
+| the relay's protocol, limits, certificates or flags, the session handshake, pairing codes | [features/relay.md](docs/features/relay.md), the relay sections of [cli/README.md](cli/README.md) and `site/pages/docs.html`; for the handshake, key derivation or pairing format, regenerate `Packages/ZubiAPI/Tests/Fixtures/relay-noise-vectors.json` and keep the Go and Swift sides passing it |
 | a Swift package, or a Hummingbird bump | [NOTICE.md](NOTICE.md): check `LINKED` in `Scripts/gen-notice.py` against the build's `Zubi.LinkFileList`, then run `Scripts/gen-notice.py build/DerivedData/SourcePackages/checkouts` |
 
 ## Before you finish

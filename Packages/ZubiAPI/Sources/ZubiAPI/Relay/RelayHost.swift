@@ -129,7 +129,7 @@ public final class RelayHost: @unchecked Sendable {
             defer { pinger.cancel() }
             while true {
                 let message = try await Self.receiveJSON(ws)
-                switch message["type"] as? String {
+                switch message["type"] as? String ?? "" {
                 case "session":
                     if let id = message["id"] as? String {
                         Task { await self.serve(sessionID: id) }

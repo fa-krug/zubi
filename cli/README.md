@@ -120,8 +120,11 @@ Each setting is taken from the first place that has it:
 
 1. the flags `--url` and `--key`
 2. the environment variables `ZUBI_URL` and `ZUBI_API_KEY`
-3. the config file
+3. the config file: a pairing from `zubi pair` (see [Through a relay](#through-a-relay)), or the URL
 4. for the URL only, the default `http://127.0.0.1:8787`
+
+A URL from a flag or the environment wins over a pairing; `zubi config set url` and
+`config discover --save` replace it.
 
 The config file is JSON, written readable by its owner only (mode 0600). Where it lives:
 
@@ -134,9 +137,10 @@ The config file is JSON, written readable by its owner only (mode 0600). Where i
 `ZUBI_CONFIG` points `zubi` at another file.
 
 Zubi listens on `127.0.0.1:8787` until you change it in its Settings. From another machine, reach
-it through an SSH tunnel (`ssh -N -L 8787:localhost:8787 user@mac.local`, then keep the default
-URL) or over an encrypted network such as Tailscale. The API is plain HTTP and the key travels in
-every request.
+it [through a relay](#through-a-relay), through an SSH tunnel
+(`ssh -N -L 8787:localhost:8787 user@mac.local`, then keep the default URL), or over an encrypted
+network such as Tailscale. The API is plain HTTP and the key travels in every request; through a
+relay, the session around it is end-to-end encrypted.
 
 ## Commands
 
@@ -404,16 +408,50 @@ case $? in
 esac
 ```
 
-## Running a relay
+## Through a relay
 
 A relay is where a Mac running Zubi and its clients meet when they are on different networks, for
 example a MacBook on the road and a Raspberry Pi at home. Both connect out to the relay, so neither
-needs to accept connections, and the relay copies messages between them. What it copies is meant to
-be end-to-end encrypted between the Mac and the client, so the relay holds no key and can't read
-your data; it sees which addresses connect, when, and how much they send.
+needs to accept connections, and the relay copies messages between them. Each session is end-to-end
+encrypted between the Mac and the device, with the device's key: the relay can't read your data, and
+sees only which addresses connect, when, and how much they send.
 
-> **Coming together in stages.** This release has the relay itself. Zubi for Mac and the client side
-> of `zubi` learn to connect through it in an upcoming release; until then nothing uses a relay.
+1. Run a relay, or use one you already have: see [Running a relay](#running-a-relay).
+2. On the Mac, under **Settings › Server › Relay**, turn on **Connect through a relay**, enter the
+   relay's `wss://` address and click **Apply**. The status turns to **Connected**.
+3. Under **Settings › Keys**, open the device's key's menu and choose **Copy Pairing Code**.
+4. On the device:
+
+   ```sh
+   zubi pair -        # paste the code, then Enter; it stays out of your shell history
+   zubi lists         # every command now reaches the Mac through the relay
+   ```
+
+`zubi pair` asks the Mac, through the relay, which key the code is for, and saves it (with the key)
+only when that works, so a typo or a stopped Mac shows at once. It exits 3 when the Mac refuses the
+key (deleted, or regenerated since the code was copied) and 5 when the Mac isn't connected to the
+relay. The code holds the key, so treat it as secret.
+
+From then on every command, `zubi watch` and `zubi mcp` go through the relay. `zubi config` shows the
+relay and room, `zubi config unset relay` forgets them, and `--url` or `ZUBI_URL` still reach Zubi
+directly for one run. A calendar subscription can't go through the relay, since the calendar app is
+what connects: run `zubi tunnel` on its computer and use `zubi feed --url http://127.0.0.1:8787`.
+
+### Lending the relay to other programs
+
+```sh
+zubi tunnel                        # http://127.0.0.1:8787, until Ctrl-C
+zubi tunnel --listen 127.0.0.1:9000
+```
+
+`zubi tunnel` serves Zubi's API at a local address, each connection a session through the relay, so a
+dashboard, a script with `curl`, or anything else that speaks HTTP reaches the Mac as if it were on
+this computer. Requests still need a key in their `Authorization` header, as they would on the Mac:
+the tunnel only carries them. It listens on loopback unless `--listen` says otherwise. To keep it
+running on Linux, a service like the relay's below works, with `ExecStart=/usr/local/bin/zubi tunnel`
+and `User=` the account that ran `zubi pair` (the pairing is in its config file).
+
+## Running a relay
 
 ```sh
 zubi relay
@@ -552,7 +590,11 @@ multicast DNS encoder and decoder behind `config discover` (`cmd/zubi/dns.go`) a
 crafted packets, so no test needs the network.
 
 The relay (`internal/relay`, `internal/websocket`) has its own tests: WebSocket framing, the relay
-protocol from registration to a closed session, limits and STUN. Its certificate tests need Pebble,
+protocol from registration to a closed session, limits and STUN. Sessions through it
+(`internal/noise`, `internal/tunnel`) are tested against vectors from an independent Noise
+implementation, shared with the app's tests, and end to end: `zubi pair`, commands, `zubi watch`
+and `zubi tunnel` run against the fake Zubi through a real relay and a Go stand-in for the Mac
+(`tunnel.Host`). Its certificate tests need Pebble,
 Let's Encrypt's test CA, and are skipped without it:
 `ZUBI_PEBBLE=$(go env GOPATH)/bin/pebble go test ./internal/relay/` after
 `go install github.com/letsencrypt/pebble/v2/cmd/pebble@v2.10.1`. The protocol and the relay's rules

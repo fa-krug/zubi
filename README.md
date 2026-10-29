@@ -72,7 +72,12 @@ To keep Zubi running after a restart, switch on **Launch at login** under **Sett
 At first Zubi only answers on your Mac, so nothing on your network can reach it by accident. To read it
 from another device, either:
 
-- **Tunnel to it** (the safest). Turn on Remote Login on the Mac, then on the other device run
+- **Go through a relay**, from any network. Zubi connects out to a relay you run with `zubi relay`
+  (on a Raspberry Pi at home or a free hosting service), and each device's session is encrypted end
+  to end with its key, so the relay can't read anything. Turn it on under **Settings › Server ›
+  Relay**, copy a **pairing code** from the device's key under **Settings › Keys**, and run
+  `zubi pair` with it on the device.
+- **Tunnel to it**. Turn on Remote Login on the Mac, then on the other device run
   `ssh -N -L 8787:localhost:8787 you@mac.local`. Zubi is now at `http://127.0.0.1:8787` there too.
 - **Use a private network** such as Tailscale. Under **Settings › Server**, choose **Specific IP**,
   enter the Mac's Tailscale address, and click **Apply and Restart**.
