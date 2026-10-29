@@ -3,20 +3,25 @@
 A macOS menu bar app (macOS 14+) that serves selected Reminders lists, calendars and Notes folders
 over a small authenticated HTTP API, so devices like a Raspberry Pi can read them. SwiftUI + AppKit,
 running as an accessory with no Dock icon (`LSUIElement`). One third-party dependency, Hummingbird,
-for the HTTP server. Not sandboxed. The API is documented in [README.md](README.md#api).
+for the HTTP server. Not sandboxed. The same repository holds `zubi`, a Go command-line client for
+the API (`cli/`). The API's contract is
+[`openapi.json`](Packages/ZubiAPI/Sources/ZubiAPI/Resources/openapi.json); the app serves it at
+`/openapi.json` with Swagger UI at `/docs`.
 
 ## Where things are
 
 | Folder | Holds |
 | --- | --- |
-| `Sources/Settings/` | The Settings window: a sidebar of `SettingsTab`s (General, Server, API Key, Reminders, Calendars, Notes, About) and one `Form` pane each under `Panes/` |
-| `Sources/App/` | `@main` (`ZubiApp`), `BridgeController` (owns the server, access state and settings), the menu bar popover, the Keychain-backed API key, `AppPaths` |
-| `Sources/Server/` | the Hummingbird server, bearer-key middleware, and one routes file per source |
-| `Sources/EventKit/` | `RemindersService` and `CalendarService`, actors over their own `EKEventStore` |
+| `Sources/Settings/` | The Settings window: a sidebar of `SettingsTab`s (General, Server, Keys, Activity, Reminders, Calendars, Notes, About) and one `Form` pane each under `Panes/` |
+| `Sources/App/` | `@main` (`ZubiApp`), `BridgeController` (owns the server, access state and settings), the menu bar popover, `KeyStore` (the per-device keys, one Keychain item), `ActivityLog`, `KeepAwake`, `Bonjour`, `AppPaths` |
+| `Sources/EventKit/` | `RemindersService` and `CalendarService`, actors over their own `EKEventStore`, conforming to the package's source protocols |
 | `Sources/Notes/` | `NotesService` and `JXARunner`: Notes read through `osascript` JavaScript for Automation |
-| `Sources/Models/` | the JSON DTOs and date formatting the API returns |
+| `Packages/ZubiAPI/` | everything HTTP, as a local Swift package: the server, routes, bearer-key middleware, DTOs, the source protocols, `/openapi.json` and `/docs`, and the contract tests (`swift test`) |
+| `cli/` | the `zubi` CLI, a stdlib-only Go module (`github.com/fa-krug/zubi/cli`); every request it makes is in `cmd/zubi/commands.go` |
 | `Sources/Updates/` | the self-updater, ported from Blitz: `Model/`, `Service/`, `UI/` |
-| `Scripts/` | `verify-signature.sh` and `set-release-secrets.sh`, both used for releases |
+| `Scripts/` | `verify-signature.sh` and `set-release-secrets.sh` for releases, `gen-notice.py` for `NOTICE.md` |
+| `site/` | the website at <https://fa-krug.github.io/zubi/>: page bodies in `pages/`, shared styles in `assets/`, and `tools/build.py`, which wraps the pages in the shared layout and generates `api.html` from `openapi.json` |
+| `.github/workflows/` | `tests.yml` (the drift gate), `release.yml` (the app), `release-cli.yml` (the CLI), `pages.yml` (the website) |
 | `docs/` | everything longer than a line here; start at [docs/README.md](docs/README.md) |
 
 ## Build
@@ -37,19 +42,32 @@ Local builds sign with the `Zubi Self-Signed` identity, created once per machine
 fails to sign; with an ad-hoc signature instead, macOS forgets the Reminders, Calendar and
 Automation grants on every rebuild.
 
+Tests, all of which CI runs before either release:
+
+```sh
+(cd Packages/ZubiAPI && swift test)   # every route against openapi.json, with fake sources
+(cd cli && go vet ./... && go test ./...)   # every CLI request and struct against openapi.json
+```
+
 Full local loop: [development.md](docs/development.md).
 
 ## Non-negotiables
 
-- **Every push to `main` ships.** `.github/workflows/release.yml` builds, signs with Developer ID,
-  notarizes and publishes a GitHub Release that installed copies update to. Only pushes touching
-  nothing but `**/*.md` or `docs/**` skip it. Never push a change to `main` that doesn't build.
-  See [release.md](docs/release.md).
+- **A push to `main` ships what it changed.** A change under the app's paths (`Sources/`,
+  `Packages/`, `project.yml`, `Zubi.xcodeproj`, `NOTICE.md`) releases the app as `vX.Y.Z`; a change
+  under `cli/` releases the CLI as `cli/vX.Y.Z`. Both run `tests.yml` first and publish nothing if it
+  fails. A change under `site/` (or to `openapi.json`) redeploys the website and nothing else. Never
+  push a change to `main` that doesn't build. See [release.md](docs/release.md).
+- **`openapi.json` is the contract.** Change an endpoint, parameter or response shape there first,
+  then the server and the CLI until both test suites pass. The tests fail on drift in either
+  direction: an undocumented route or field, or a documented one the code doesn't produce.
 - **Debug builds are their own channel**: `Zubi Dev.app`, bundle id `de.fa-krug.zubi.dev`. They get
   their own prefs, caches, login item and TCC grants, and never update themselves. Anything newly
   persisted stays keyed by `Bundle.main.bundleIdentifier` (`AppPaths.caches()` for files).
-- **Nothing is exposed by default.** The API serves only the lists, calendars and folders ticked in
-  Settings, checked on every request; anything else returns 404. Every `/api` route sits behind the
+- **Nothing is exposed by default, and nothing is writable unless chosen.** Each list, calendar and
+  folder is Off, Read or Read & Write in Settings, checked on every request: Off answers 404 for reads
+  and writes alike, Read answers 403 to a write. A move needs the target writable too. The API never
+  deletes. Every `/api` route sits behind the
   bearer-key middleware; only `/health` does not. The default bind is `127.0.0.1`.
 - **A protected resource needs its usage string *and* its entitlement.** Under the hardened runtime
   (Release only) a missing entitlement denies silently with no prompt. Today that is
@@ -59,7 +77,9 @@ Full local loop: [development.md](docs/development.md).
 - **`BundleSignature.developerID` is read by the release workflow.** Keep it a single triple-quoted
   string literal, and change it only together with the signing team.
 - **The update feed is `fa-krug/zubi`**, named once in `ReleaseFeed.repository`. Release assets must
-  stay `Zubi-Universal-<version>.zip`, zipped with `ditto -c -k --keepParent --sequesterRsrc`.
+  stay `Zubi-Universal-<version>.zip`, zipped with `ditto -c -k --keepParent --sequesterRsrc`. CLI
+  releases share the repository but never take the Latest badge, and their `cli/v…` tags don't parse
+  as app versions, so the updater never offers one.
 
 ## Keep in sync
 
@@ -67,16 +87,20 @@ Any doc your change makes wrong is fixed in the same commit:
 
 | When you change | Update |
 | --- | --- |
-| an endpoint, a query parameter, a response shape, the setup flow | [README.md](README.md) |
+| an endpoint, a query parameter, a response shape | `openapi.json` first, then `site/pages/docs.html` and [cli/README.md](cli/README.md); the site's API reference is generated |
+| the setup flow, install, or what a user sees first | [README.md](README.md) (for end users) and the home page's steps in `site/pages/index.html` |
+| the toolchain, repository layout, tests, or how to contribute | [CONTRIBUTING.md](CONTRIBUTING.md) |
+| a CLI command, flag or exit code | [cli/README.md](cli/README.md), the usage text in `cli/cmd/zubi/main.go`, and `site/pages/docs.html` |
+| anything a user sees in Settings, the setup flow, or what the app sends where | `site/pages/docs.html`, the home page's setup steps, and `site/pages/privacy.html` if a connection changes |
 | `project.yml`, the toolchain, the build command, the dev channel | [development.md](docs/development.md) |
-| `release.yml`, the version scheme, the secrets | [release.md](docs/release.md) |
+| a workflow, the version scheme, the secrets | [release.md](docs/release.md) |
 | entitlements, usage strings, signing identities, `BundleSignature` | [signing.md](docs/signing.md) |
 | anything under `Sources/Updates/` | [features/updates.md](docs/features/updates.md) |
 | a Swift package, or a Hummingbird bump | [NOTICE.md](NOTICE.md): check `LINKED` in `Scripts/gen-notice.py` against the build's `Zubi.LinkFileList`, then run `Scripts/gen-notice.py build/DerivedData/SourcePackages/checkouts` |
 
 ## Before you finish
 
-- The Debug build compiles with **no new warnings**.
+- The Debug build compiles with **no new warnings**, and both test suites pass.
 - You ran the app and exercised what you changed, including a `curl` against any endpoint you touched.
 - `project.yml` changes are regenerated and the result is in the commit.
 - Docs are in sync, per the table above.

@@ -1,66 +1,211 @@
 # Contributing to Zubi
 
-Check existing [issues](https://github.com/fa-krug/zubi/issues) and
-[pull requests](https://github.com/fa-krug/zubi/pulls) first.
+This guide is for people who want to build Zubi, change it, or send a change back. If you only want to
+use Zubi, the [README](README.md) and the [documentation](https://fa-krug.github.io/zubi/docs.html) are
+the place to start.
 
 > **Don't hurry your code. Make sure it works well and is well designed. Don't worry about timing.**
 
-## Non-negotiables
+## Before you start
 
-- **Nothing leaks by default.** Zubi hands personal data to other machines. A change must never expose
-  a list, calendar or folder the user didn't tick, answer an `/api` route without the key, or widen
-  the default bind beyond localhost.
-- **No bloat.** Zubi stays small on purpose. A clean patch still gets declined if the feature isn't
-  worth its weight, so open an issue and settle that before you build.
-- **Never break the Non-negotiables** in [`AGENTS.md`](AGENTS.md).
+Check the existing [issues](https://github.com/fa-krug/zubi/issues) and
+[pull requests](https://github.com/fa-krug/zubi/pulls). For anything bigger than a fix, open an issue
+first and agree on the idea: Zubi stays small on purpose, and a clean patch still gets declined if the
+feature isn't worth its weight.
 
-## Setup
+Three rules no change may break:
 
-- Xcode 26; the app targets macOS 14+. `brew install xcodegen`. Do the one-time signing setup
-  ([`docs/signing.md`](docs/signing.md) §1).
-- `open Zubi.xcodeproj` → ⌘R. Debug builds are their own channel (`Zubi Dev.app`).
-- After editing `project.yml`: `xcodegen generate`, commit the result.
-- Details: [`docs/development.md`](docs/development.md). Start at [`docs/`](docs/README.md).
+- **Nothing leaks or changes by default.** Zubi hands personal data to other machines and lets them
+  change it. A change must never share a list, calendar or folder the user left Off, write to one they
+  set to Read, delete anything, answer an `/api` route without the key, or widen the default bind
+  beyond `127.0.0.1`.
+- **`openapi.json` is the contract.** The server and the CLI are both tested against it; an API change
+  starts there.
+- **The rest of the non-negotiables** in [`AGENTS.md`](AGENTS.md) apply to people exactly as they do to
+  coding agents. Read them before your first change.
 
-## Before submitting
+## How the repository is put together
 
-- The Debug build compiles with no new warnings. The repository's one workflow releases each push to
-  `main` and runs nothing on a PR, so **build locally**.
-- You actually used the app, on your path and the ones next to it. For an API change, `curl` the
-  endpoint with and without the key, and against a hidden item.
-- Rebased on `main`, squashed into logical commits.
-- Anything in [`docs/`](docs/) or the README your change makes wrong is fixed.
-- **Read your own diff top to bottom before you open the PR.** Most review comments are things the
-  author would have caught on a second pass.
+One repository, four things that ship, each released only when its own files change:
+
+| Folder | What it is | Language | Ships as |
+| --- | --- | --- | --- |
+| `Sources/` | The Mac app: menu bar, Settings window, permissions, the EventKit and Notes readers, the self-updater | Swift, SwiftUI | `Zubi-Universal-<version>.zip`, tag `v<version>` |
+| `Packages/ZubiAPI/` | Everything HTTP: server, routes, key check, response types, `openapi.json`, `/docs`, and the contract tests | Swift (Hummingbird) | inside the app |
+| `cli/` | `zubi`, the command-line client | Go, standard library only | archives per platform, tag `cli/v<version>` |
+| `site/` | The website at <https://fa-krug.github.io/zubi/>, including the generated API reference | HTML, CSS, a Python build script | GitHub Pages |
+
+Also in the repository:
+
+- `docs/`: the developer documentation, indexed in [`docs/README.md`](docs/README.md).
+- `Scripts/`: release helpers and the `NOTICE.md` generator.
+- `.github/workflows/`: the test gate and one release workflow per product.
+- [`AGENTS.md`](AGENTS.md): the short version of all of this, plus which doc to update for which change.
+
+## Set up your Mac
+
+You need:
+
+- **Xcode 26** (the app targets macOS 14 and later).
+- **XcodeGen**: `brew install xcodegen`.
+- **Go 1.24 or later**, for the CLI: `brew install go`.
+- **Python 3**, for the website. The one macOS ships is enough.
+
+Then, once per machine, create the **`Zubi Self-Signed`** code-signing identity, following
+[`docs/signing.md`](docs/signing.md) §1. Every local build signs with it. Without it the build fails to
+sign; with an ad-hoc signature instead, macOS forgets the Reminders, Calendar and Notes permissions on
+every rebuild.
+
+Clone and check that everything works:
+
+```sh
+git clone https://github.com/fa-krug/zubi.git && cd zubi
+(cd Packages/ZubiAPI && swift test)
+(cd cli && go test ./...)
+```
+
+## Build and run the app
+
+`Zubi.xcodeproj` is generated by XcodeGen from `project.yml` and committed. Open it and press ⌘R, or
+build from the command line:
+
+```sh
+xcodebuild -project Zubi.xcodeproj -scheme Zubi -configuration Debug \
+    -derivedDataPath build/DerivedData build
+open "build/DerivedData/Build/Products/Debug/Zubi Dev.app"
+```
+
+A local build is **Zubi Dev**, a separate app with its own settings, permissions, API key and login
+item, so it never touches an installed Zubi. It also never updates itself. Two things to know:
+
+- If you also run the installed Zubi, give the dev build another port:
+  `defaults write de.fa-krug.zubi.dev port -int 8797`, then start it.
+- A Debug build accepts `--open-settings <tab>` to open Settings on a tab at launch, which is handy for
+  screenshots: `open -n "build/.../Zubi Dev.app" --args --open-settings notes`.
+
+After editing `project.yml`, run `xcodegen generate` and commit the regenerated project with it. Never
+edit `Zubi.xcodeproj` by hand.
+
+More detail, including the dev channel and Debug signing: [`docs/development.md`](docs/development.md).
+
+## Run the tests
+
+```sh
+(cd Packages/ZubiAPI && swift test)          # the server against openapi.json
+(cd cli && gofmt -l . && go vet ./... && go test ./...)   # the CLI against openapi.json
+```
+
+- **The API tests** run the real router in memory with fake Reminders, Calendar and Notes data, so they
+  need no permissions. They fail if a route isn't in the spec or the spec lists one that doesn't exist,
+  if a response doesn't match its schema exactly, or if an error the server can give isn't documented.
+- **The CLI tests** fail if the CLI calls an endpoint or sends a parameter the spec doesn't declare, if
+  a response type doesn't match its schema field for field, or if a command, exit code or config rule
+  misbehaves.
+
+CI runs both on every pull request, and both release workflows refuse to publish when either fails.
+
+## Change the API
+
+Every change to an endpoint, parameter or response goes through the spec first:
+
+1. Edit [`openapi.json`](Packages/ZubiAPI/Sources/ZubiAPI/Resources/openapi.json).
+2. Run both test suites. They now fail, and their messages say what disagrees with the new spec.
+3. Change the route in `Packages/ZubiAPI` and the fakes in its tests until `swift test` passes.
+4. Change the CLI (`cli/cmd/zubi/commands.go` and the response types) and its fixtures until
+   `go test` passes.
+5. Build the app, run it, and `curl` the endpoint with the key, without it, and for something that
+   isn't shared.
+6. Update the docs a user would read: the website's [docs page](site/pages/docs.html) and
+   [cli/README.md](cli/README.md). The API reference on the website is generated from the spec, so it
+   updates itself.
+
+## Work on the CLI
+
+```sh
+cd cli
+go run ./cmd/zubi help
+ZUBI_URL=http://127.0.0.1:8797 ZUBI_API_KEY=<dev key> go run ./cmd/zubi events
+```
+
+The dev build's keys are under **Settings › Keys** in Zubi Dev. Use `ZUBI_CONFIG=/tmp/zubi.json` to
+keep your experiments out of your real CLI settings. Every request the CLI makes is listed in
+`cmd/zubi/commands.go`; a new command starts there, and the usage text in `main.go` must name it (a test
+checks). See [cli/README.md](cli/README.md) for its behaviour and exit codes.
+
+## Work on the website
+
+```sh
+python3 site/tools/build.py _site
+python3 -m http.server 8800 --directory _site    # open http://localhost:8800
+```
+
+Page bodies live in `site/pages/`, each starting with a JSON comment that sets its title, description
+and menu entry; the build wraps them in the shared header and footer and generates `api.html` from the
+spec. Two rules: the site loads **no external fonts, scripts or trackers** (its privacy policy promises
+that), and the legal pages keep their English and German versions in step.
+
+## How releases happen
+
+You never release by hand. A push to `main` releases whatever it changed, after the tests pass:
+
+- a change under `Sources/`, `Packages/`, `project.yml` or `Zubi.xcodeproj/` ships a new app, which
+  every installed copy then offers as an update;
+- a change under `cli/` ships a new CLI;
+- a change under `site/` redeploys the website.
+
+Version numbers count up by themselves. To move to a new minor version, bump `MARKETING_VERSION` in
+`project.yml` (the app) or `cli/VERSION` (the CLI). Signing and notarization happen in CI with the
+project's secrets; you don't need them locally. Details: [`docs/release.md`](docs/release.md).
+
+## Before you open a pull request
+
+- The Debug build compiles with **no new warnings**, and both test suites pass.
+- You used what you changed in the running app, and the paths next to it. For an API change, the
+  requests from step 5 above.
+- Docs your change makes wrong are fixed in the same commit; [`AGENTS.md`](AGENTS.md) has a table of
+  which doc goes with which change.
+- `project.yml` changes are regenerated, and the result is committed.
+- Rebased on `main`, in logical commits with imperative messages: `Add due=tomorrow filter`.
+- **You read your own diff top to bottom.** Most review comments are things the author would have
+  caught on a second pass.
 
 ## Pull requests
 
-- Fill in the [PR template](.github/PULL_REQUEST_TEMPLATE.md): every section, or say why it doesn't
-  apply.
-- Visual change → before/after screenshots or a short recording.
-- Non-visual → say what you tested, with the requests you ran.
-- Flag anything surprising, and any tradeoff you made on purpose.
+- Fill in the [pull request template](.github/PULL_REQUEST_TEMPLATE.md): every section, or say why it
+  doesn't apply.
+- Visual change: before and after screenshots, or a short recording.
+- Anything else: say what you tested, with the requests or commands you ran.
+- Point out anything surprising, any trade-off you made on purpose, and any behaviour you changed
+  without meaning to.
 
 ## Code style
 
-Read [`AGENTS.md`](AGENTS.md) first. The layout and the Non-negotiables are there, and they apply to a
-human contributor exactly as they do to an agent. Look before "fixing" something that looks wrong: it
-may be deliberate. `.swift-format` at the repo root holds the formatter settings.
+- Match the code around you: its naming, its idioms, and its comments, which explain *why* rather than
+  *what*. Look before "fixing" something that seems wrong; it may be deliberate.
+- Swift: `.swift-format` at the repository root holds the formatter settings.
+- Go: `gofmt`, standard library only.
+- Website: plain HTML and CSS, system fonts.
 
-Two things that are only about contributing:
+## Ideas that would be welcome
 
-- Commit messages imperative: `Add due=tomorrow filter`.
-- Behaviour you didn't mean to change, didn't change. Say so explicitly in the PR if it did.
+Discuss them in an issue first:
 
-## Bugs
+- A folder cache for Notes, to make listing and searching large folders faster.
+- Tags and subtasks for reminders.
+- Alarms on reminders and events.
+- An MCP endpoint served by the app itself, so an assistant needs no `zubi` install.
 
-macOS version, Zubi version, which source (Reminders, Calendar, Notes, the API itself or updates),
-steps, expected vs actual. For an API bug, the exact request and the response.
+## Reporting bugs
+
+[Open an issue](https://github.com/fa-krug/zubi/issues/new/choose) with your macOS version, the Zubi
+version (Settings › General), which part is affected (Reminders, Calendar, Notes, the API, the CLI,
+updates, or the website), the steps, and what you expected instead. For an API or CLI bug, include the
+exact request or command and the response.
 
 ## Security
 
-Not in the issue tracker; see [`SECURITY.md`](SECURITY.md).
+Never in the issue tracker; see [`SECURITY.md`](SECURITY.md).
 
 ## License
 
-[MIT](LICENSE). Contributions are licensed under the same terms.
+Zubi is [MIT](LICENSE) licensed. Contributions are licensed under the same terms.

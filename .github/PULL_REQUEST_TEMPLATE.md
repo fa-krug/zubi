@@ -5,7 +5,7 @@ Closes #
 ## What changed
 
 <!-- What it does and how it works. Call out anything non-obvious in the diff.
-     API change → the endpoint, parameters and response shape, and the README update. -->
+     API change → the endpoint, parameters and response shape, the openapi.json change, and the docs update. -->
 
 ## Drawbacks
 

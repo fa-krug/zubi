@@ -1,6 +1,6 @@
 # Zubi
 
-*Zubi* is Basque for "bridge": between your Mac and everything else, in both directions.
+*Zubi* is Basque for "bridge": between your Mac and everything else.
 
 <p align="center">
   <img alt="macOS 14 or later"
@@ -10,107 +10,132 @@
          src="https://img.shields.io/badge/License-MIT-3DA639?style=flat"></a>
 </p>
 
-A menu bar app for macOS 14+ that serves selected Reminders lists, calendars and Notes folders over a
-small authenticated HTTP API, so devices like a Raspberry Pi can read them.
+Zubi is a free menu bar app for your Mac. It shares the Reminders lists, calendars and Notes folders
+you choose over a small, password-protected web interface (an HTTP API), so your other devices can
+read them, and, where you allow it, add and edit reminders, events and notes: a Raspberry Pi display,
+Home Assistant, a Linux or Windows computer, a script, or an AI agent.
 
-Apple keeps this data on the Mac and in iCloud, with no API a Linux box can call. Zubi runs where the
-data already is, reads it through the system's own frameworks, and hands out exactly the lists,
-calendars and folders you tick. Nothing is exposed until you do.
+Apple keeps this data on your Mac and in iCloud, with nothing a non-Apple device can ask. Zubi runs
+where the data already is and hands out exactly what you allow, item by item. There is no account and no Zubi
+server: your data goes from your Mac straight to your own devices.
+
+**Documentation: <https://fa-krug.github.io/zubi/>**
+
+## What you can do with it
+
+- **Put your day on a screen.** A Raspberry Pi by the front door shows today's events and the
+  shopping list, and updates the moment something changes.
+- **Automate your home.** Home Assistant or Node-RED reacts when a reminder is overdue.
+- **Let an AI assistant manage your week.** Claude Desktop, Claude Code or any MCP-capable assistant
+  can search your calendar, reminders and notes and, where you allow it, add events and tick off
+  reminders, through the `zubi` command.
+- **Subscribe from any calendar app.** Thunderbird, GNOME Calendar or a wall display can subscribe to a
+  shared calendar by link.
+- **Script it.** A morning summary by email, a reminder count in your shell prompt, a plain-text copy
+  of a Notes folder.
+- **Reach it from Linux and Windows.** Your Apple calendars and reminders on computers Apple doesn't
+  make apps for.
 
 ## Install
 
-Download the latest `Zubi-Universal-<version>.zip` from
-[Releases](https://github.com/fa-krug/zubi/releases/latest), unzip it and move `Zubi.app` to
-`/Applications`. Releases are signed with Developer ID and notarized, so it opens like any other
-downloaded app.
+You need a Mac with macOS 14 Sonoma or later.
 
-From then on Zubi updates itself from the same releases, with no further steps.
+1. Download the latest `Zubi-Universal-<version>.zip` from
+   [Releases](https://github.com/fa-krug/zubi/releases/latest).
+2. Unzip it and move **Zubi** to your Applications folder.
+3. Open it. macOS asks once whether to open an app from the internet; Zubi is signed and notarized
+   by Apple, so confirm. Its bridge icon appears in the menu bar.
 
-## First run
+Zubi keeps itself up to date: once a day it checks for a new version, shows what changed, and installs
+it when you say so.
 
-1. Menu bar icon, then **Settings…**
-2. Under **Reminders**, **Calendars** and **Notes**, grant access, then tick what the API may expose.
-   Nothing is exposed by default. Calendars and lists show their own colours; Notes folders are
-   indented under their parent folder
-3. Under **Server**, choose the bind address and port, then **Apply and Restart**
-4. Under **API Key**, copy the key or the ready-made curl command
-5. Optionally, under **General**, enable **Launch at login**
+## Get started
 
-The server listens on `127.0.0.1:8787` until you change it. "Localhost only" pairs with an SSH tunnel;
-"Specific IP" suits a Tailscale address; "All interfaces" puts the API on every network the Mac is on.
+Three steps, about three minutes:
 
-## API
+1. **Choose what to share.** Click the menu bar icon, then **Settings…**. Under **Reminders**,
+   **Calendars** and **Notes**, click **Grant Access**, then set each list, calendar and folder to
+   **Read**, or to **Read & Write** if other devices may also add and edit items there. Everything
+   starts **Off**: nothing is shared until you choose.
+2. **Copy the key.** Under **Keys**, click **Copy Command**. Later, give each device its own key
+   there, either **Read** or **Read & Write**.
+3. **Try it.** Paste the command into Terminal. Your shared events come back as JSON:
 
-All `/api` routes need `Authorization: Bearer <api-key>`. Hidden items return 404.
+   ```bash
+   curl -H "Authorization: Bearer <key>" http://127.0.0.1:8787/api/events
+   ```
 
-| Method | Path | Notes |
-|---|---|---|
-| GET | `/health` | No auth |
-| GET | `/api/lists` | Exposed reminder lists, with `account` and `color` (`#RRGGBB`) |
-| GET | `/api/reminders` | `list`, `due=today\|overdue`, `completed=true` |
-| GET | `/api/calendars` | Exposed calendars, with `account` and `color` (`#RRGGBB`) |
-| GET | `/api/events` | `from`, `to` (YYYY-MM-DD, inclusive, default next 7 days), `calendar` |
-| GET | `/api/notes/folders` | Exposed Notes folders, with `parentID` (null at the top of an account) |
-| GET | `/api/notes` | Metadata, newest first. `folder`, `limit` (default 50, max 500) |
-| GET | `/api/note?id=...` | Full note as `plaintext` and `html` |
+To keep Zubi running after a restart, switch on **Launch at login** under **Settings › General**.
 
-`list`, `calendar` and `folder` take an ID or a name. An event range is limited to one year.
+## Use it from another device
 
-Dates: ISO 8601 in UTC, or `YYYY-MM-DD` in the Mac's time zone for all-day items. Recurring events
-come back as individual occurrences.
+At first Zubi only answers on your Mac, so nothing on your network can reach it by accident. To read it
+from another device, either:
 
-## Notes specifics
+- **Tunnel to it** (the safest). Turn on Remote Login on the Mac, then on the other device run
+  `ssh -N -L 8787:localhost:8787 you@mac.local`. Zubi is now at `http://127.0.0.1:8787` there too.
+- **Use a private network** such as Tailscale. Under **Settings › Server**, choose **Specific IP**,
+  enter the Mac's Tailscale address, and click **Apply and Restart**.
 
-- Apple Notes has no public API. The app runs JavaScript for Automation via `osascript`, which
-  requires the Automation permission ("Zubi wants to control Notes") and launches Notes.app if
-  needed.
-- Locked notes return metadata only.
-- Note IDs are `x-coredata://...` URLs, so they go in a query parameter, URL-encoded.
-- Slower than EventKit: listing a large folder can take a second or two.
+The Mac has to be awake, logged in and running Zubi to answer.
+[Reaching Zubi from other devices](https://fa-krug.github.io/zubi/docs.html#network) covers every
+option.
 
-## From the Raspberry Pi
+## The `zubi` command
+
+`zubi` is a small command-line client for macOS, Linux (including a Raspberry Pi) and Windows. It shows,
+searches, adds and edits your reminders, events and notes in a terminal, gives scripts and AI agents
+exact JSON with `--json`, prints a line whenever something changes (`zubi watch`), and serves
+Zubi to AI assistants such as Claude Desktop (`zubi mcp`).
 
 ```bash
-ssh -N -L 8787:localhost:8787 user@mac.local
-curl -H "Authorization: Bearer <key>" "http://localhost:8787/api/events?from=2026-11-02&to=2026-11-06"
-curl -G -H "Authorization: Bearer <key>" --data-urlencode "id=x-coredata://..." "http://localhost:8787/api/note"
+zubi config discover --save        # or: zubi config set url http://127.0.0.1:8787
+zubi config set key -              # paste a key from Settings › Keys
+zubi events --from 2026-11-02 --to 2026-11-06
+zubi reminders add "Buy milk" --list Groceries --due 2026-11-02
+zubi reminders --due overdue --json
 ```
 
-## Notes on hosting
+Download it from the [CLI releases](https://github.com/fa-krug/zubi/releases?q=cli&expanded=true)
+(tagged `cli/v…`), or see [cli/README.md](cli/README.md) for every install option, command and exit
+code.
 
-- The app must run in a logged-in GUI session. With FileVault enabled, macOS disables automatic
-  login.
-- The API speaks plain HTTP. Keep it on localhost behind an SSH tunnel, or on an encrypted network
-  such as Tailscale, rather than on a network you don't trust.
-- Not sandboxed. If you sandbox it later, add the network server entitlement.
+## Privacy and security
 
-## Updates
+- You decide per list, calendar and folder: **Off**, **Read**, or **Read & Write**. Anything Off
+  answers as if it didn't exist; anything set to Read can't be changed through Zubi.
+- Every device gets its own key, kept in your Mac's Keychain: **Read**, or **Read & Write**. A Read
+  key can never change anything, and you can revoke one device without touching the others.
+- **Settings › Activity** lists everything created or edited through Zubi, and by which key.
+- Zubi listens only on your Mac until you change that. It only adds and edits where you chose Read &
+  Write, and it never deletes anything.
+- Zubi doesn't encrypt traffic itself. Beyond your Mac, use an SSH tunnel or an encrypted network such
+  as Tailscale.
+- No analytics, no tracking. The only outside service Zubi contacts is GitHub, once a day, to check for
+  updates; you can switch that off.
 
-Zubi checks this repo's GitHub Releases once a day, shows the release notes when there is something
-new, and installs and relaunches when you say so. **Later** skips that version; a newer one still
-asks. Turn the daily check off under **Settings… › General**. **Check for Updates…** there and in the
-menu bar popover works either way. Details: [docs/features/updates.md](docs/features/updates.md).
+The [privacy policy](https://fa-krug.github.io/zubi/privacy.html) lists every connection Zubi makes.
 
-## Development
+## Documentation
 
-See **[docs/development.md](docs/development.md)** for the toolchain and build, and
-**[docs/release.md](docs/release.md)** for how a push to `main` becomes an update.
-**[docs/](docs/README.md)** indexes the rest.
+- [Documentation](https://fa-krug.github.io/zubi/docs.html): the app, every setting, what each source
+  returns, other devices, updates and troubleshooting.
+- [API reference](https://fa-krug.github.io/zubi/api.html): every endpoint, parameter and field. On your
+  Mac, **Open API Docs** in **Settings › Keys** opens the same API in a page where you can try each call.
+- [Command-line client](cli/README.md): install, configure, commands, and use from agents.
+
+## Help and feedback
+
+Found a bug or have an idea? [Open an issue](https://github.com/fa-krug/zubi/issues/new/choose). Report
+security problems privately, as described in [SECURITY.md](SECURITY.md).
 
 ## Contributing
 
-Read **[CONTRIBUTING.md](CONTRIBUTING.md)** first. Every PR fills in the
-**[pull request template](.github/PULL_REQUEST_TEMPLATE.md)**. Security issues go through
-[SECURITY.md](SECURITY.md), not the issue tracker.
-
-## Next steps
-
-- Write endpoints (reminders first, then events)
-- Change stream via `EKEventStoreChanged` as SSE
-- Folder cache for Notes
-- Tags and subtasks: port the parsing from FradSer/event (MIT, keep its license notice)
-- Optional `/mcp` endpoint with the Swift MCP SDK
+Want to build Zubi yourself or change it? The [contribution guide](CONTRIBUTING.md) explains how the
+project is put together, how to build and test it, and how to send a change.
 
 ## License
 
-[MIT](LICENSE)
+Zubi is free and open source under the [MIT License](LICENSE). The third-party software it includes is
+listed in [NOTICE.md](NOTICE.md). Apple, macOS, Reminders, Calendar and Notes are trademarks of Apple
+Inc.; Zubi is not affiliated with Apple.

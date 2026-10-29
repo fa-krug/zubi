@@ -75,8 +75,10 @@ id and signature; `ReleaseArchitecture` picks the asset, and nothing about ident
 It holds `lastCheckedAt`, the newest release seen, and the version the user dismissed. Freshness is
 measured from `lastCheckedAt`, so relaunching never re-asks GitHub. The interval is 24 h, dropping to
 2 h after a failed attempt, and the first check waits 30 s so it never lands in the login rush. The
-request asks for the latest 20 releases and carries a `User-Agent`, which the GitHub API rejects
-requests without.
+request asks for the latest 100 releases and carries a `User-Agent`, which the GitHub API rejects
+requests without. The CLI publishes its releases in the same repo, tagged `cli/vX.Y.Z`; `AppVersion`
+reads only `vX.Y.Z`, so those are skipped, and the full page keeps a run of them from hiding the
+app's latest.
 
 `UpdateCoordinator` is created with the app, not with the first view, so the daily check runs whether
 or not the menu is ever opened. `applyAutomaticChecking()` starts or stops the pump from the

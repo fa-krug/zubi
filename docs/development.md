@@ -7,6 +7,7 @@ The local loop: set up, build, run, regenerate. Shipping a build is [release.md]
 - Xcode 26. The app targets macOS 14 and later (`deploymentTarget` in `project.yml`).
 - [XcodeGen](https://github.com/yonaskolb/XcodeGen): `brew install xcodegen`.
 - The network, once, for the first build: SwiftPM fetches Hummingbird and the packages it depends on.
+  `swift test` in `Packages/ZubiAPI` fetches them once more, into its own `.build/`.
 
 ## First-time setup
 
@@ -30,9 +31,44 @@ Never hand-edit `Zubi.xcodeproj`; the next `xcodegen generate` overwrites it. `S
 `Sources/Zubi.entitlements` are the exception to "generated": both are hand-written, committed, and
 referenced from `project.yml`.
 
-Hummingbird is the one SwiftPM package, declared under `packages:` in `project.yml`.
-`Zubi.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved` pins it and everything it
-pulls in, so every build resolves the same source. Zubi itself has no `Package.swift`.
+The app depends on one SwiftPM package, the local `Packages/ZubiAPI`, declared under `packages:` in
+`project.yml`; Hummingbird, the one third-party package, comes in through it.
+`Zubi.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved` pins Hummingbird and
+everything it pulls in, so every build resolves the same source. The app itself has no
+`Package.swift`.
+
+## The API package
+
+`Packages/ZubiAPI` holds everything HTTP: the Hummingbird server, the bearer-key middleware, one
+routes file per source, the DTOs, and `Resources/openapi.json`. It never touches EventKit or Notes.app.
+The routes read through protocols (`RemindersSource`, `CalendarSource`, `NotesSource`), and access and
+exposure come in as closures (`SourceAccess`, `ExposedIDs`) that are asked on every request. The app
+conforms its `RemindersService`, `CalendarService` and `NotesService` to those protocols, and
+`BridgeController` wires them up.
+
+**`openapi.json` is the contract.** It is served at `/openapi.json`, shown at `/docs`, and the
+package's tests hold the server to it:
+
+```sh
+cd Packages/ZubiAPI && swift test
+```
+
+They run the router in memory against fake sources, no port and no grants needed, and fail when:
+
+- a route exists that the spec does not list, or the spec lists one that does not exist;
+- an operation, called plainly or with any one query parameter at its `example`, answers anything but
+  200 with a body that validates against its schema, strictly: an undocumented property fails too;
+- a secured operation answers without the key, or an error the tests provoke (bad `due`, hidden list,
+  missing note `id`, access denied, Notes failing) is not listed for its operation or its body is not
+  an `Error`.
+
+So an API change is a change to `openapi.json`, the route and the fakes in the same commit, then the
+CLI until its own drift tests pass; the step-by-step is in
+[CONTRIBUTING.md](../CONTRIBUTING.md#change-the-api). The validator in `Tests/ZubiAPITests` understands the JSON Schema subset
+the spec uses and fails on any other keyword, rather than silently ignoring it.
+
+`Packages/ZubiAPI/Package.resolved` pins the same versions as the app's. If `swift test` resolves
+something newer, copy the app's `Package.resolved` over it.
 
 ## Build & run
 
@@ -74,8 +110,11 @@ Two consequences:
 - Don't run both on the same port. Whichever starts second fails to bind.
 - The dev build never updates itself. **Check for Updates…** says it is a local build instead.
 
-That includes the API key: its login-keychain item uses the bundle id as its service (account
-`api-key`), so each build has its own key and **Regenerate** in one never touches the other.
+That includes the keys: they live in one login-keychain item whose service is the bundle id (account
+`api-keys`, a JSON list of name, access and secret per key), so each build has its own keys and
+changing one never touches the other. A copy from before per-device keys had a single `api-key` item;
+`KeyStore` migrates it once into a Read & Write key named "Default", and deletes the old item only
+after the new one is saved.
 
 Anything newly persisted must stay keyed by `Bundle.main.bundleIdentifier`. `AppPaths.caches()` does
 that for files.
@@ -86,3 +125,19 @@ Debug signs with `Zubi Self-Signed` and runs **without** the hardened runtime. H
 on library validation, and Xcode's `Zubi Dev.debug.dylib` would be refused at launch, because a
 self-signed identity carries no Team ID for the loader to match. Release turns it on. See
 [signing.md](signing.md#hardened-runtime).
+
+## The website
+
+`site/` holds the website. Page bodies live in `site/pages/`, each starting with a JSON comment that
+gives its title, description and navigation entry; `site/tools/build.py` wraps them in the shared
+header and footer and generates the API reference from `openapi.json`. It uses only Python's standard
+library. Build and look at it locally:
+
+```sh
+python3 site/tools/build.py _site
+python3 -m http.server 8800 --directory _site   # then open http://localhost:8800
+```
+
+The site loads no external fonts, scripts or trackers, and its privacy policy says so; keep it that
+way. The legal pages are bilingual: each holds an English and a German block, switched by
+`assets/lang.js`.
