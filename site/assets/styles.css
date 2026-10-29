@@ -112,6 +112,44 @@ pre .dim {
   color: var(--code-dim);
 }
 
+/* A code block with its Copy button; assets/copy.js wraps each one. */
+.codeblock {
+  position: relative;
+}
+
+.codeblock > .copy {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 3px 10px;
+  border: 1px solid color-mix(in srgb, var(--code-dim) 45%, transparent);
+  border-radius: 6px;
+  background: var(--code-bg);
+  color: var(--code-dim);
+  font: 600 12px/1.4 var(--sans);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+
+.codeblock:hover > .copy,
+.codeblock > .copy:focus-visible,
+.codeblock > .copy[data-copied] {
+  opacity: 1;
+}
+
+.codeblock > .copy:hover,
+.codeblock > .copy[data-copied] {
+  color: var(--code-ink);
+}
+
+/* No hover on touch screens, so the button is always there. */
+@media (hover: none) {
+  .codeblock > .copy {
+    opacity: 1;
+  }
+}
+
 .wrap {
   width: min(var(--maxw), 100% - 40px);
   margin-inline: auto;
