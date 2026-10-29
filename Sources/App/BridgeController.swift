@@ -2,6 +2,7 @@ import AppKit
 import EventKit
 import Foundation
 import ServiceManagement
+import ZubiAPI
 
 @MainActor
 final class BridgeController: ObservableObject {
@@ -31,22 +32,61 @@ final class BridgeController: ObservableObject {
     @Published var exposedNoteFolders = Exposure.noteFolders.ids() {
         didSet { Exposure.noteFolders.set(exposedNoteFolders) }
     }
+    @Published var writableReminderLists = Exposure.reminderLists.writableIDs() {
+        didSet { Exposure.reminderLists.setWritable(writableReminderLists) }
+    }
+    @Published var writableCalendars = Exposure.calendars.writableIDs() {
+        didSet { Exposure.calendars.setWritable(writableCalendars) }
+    }
+    @Published var writableNoteFolders = Exposure.noteFolders.writableIDs() {
+        didSet { Exposure.noteFolders.setWritable(writableNoteFolders) }
+    }
 
     // MARK: Server
 
-    @Published private(set) var isRunning = false
+    @Published private(set) var isRunning = false {
+        didSet { updateKeepAwake() }
+    }
     @Published private(set) var log: [String] = []
     @Published private(set) var lastError: String?
-    @Published private(set) var apiKey: String
     @Published private(set) var launchAtLogin: Bool
+    /// Idle sleep is held off while this is on and the server runs.
+    @Published var keepAwake: Bool {
+        didSet {
+            UserDefaults.standard.set(keepAwake, forKey: SettingsKey.keepAwake)
+            updateKeepAwake()
+        }
+    }
+    @Published private(set) var isKeepingAwake = false
+    @Published private(set) var isAdvertising = false
     @Published var bindMode: BindMode
     @Published var customHost: String
     @Published var port: Int
 
+    // MARK: Keys and activity
+
+    /// In Settings' order. The secrets are in the Keychain; see `KeyStore`.
+    @Published private(set) var keys: [StoredKey] = []
+    @Published private(set) var keyLastUsed: [String: Date]
+    /// Why the keys could not be read or saved; while reading fails, no key works.
+    @Published private(set) var keyError: String?
+    /// Newest first.
+    @Published private(set) var activity: [ActivityEntry]
+    /// Set to open Settings on a tab; Settings clears it once shown.
+    @Published var requestedSettingsTab: SettingsTab?
+
     let reminders = RemindersService()
     let calendarService = CalendarService()
     let notes = NotesService()
+    /// One for the app's lifetime, so EventKit's notifications reach whichever server is running.
+    let changes = ChangeFeed()
+    private let keyRing = KeyRing()
+    private let sleepAssertion = KeepAwake()
+    private let bonjour = BonjourAdvertiser()
     private var serverTask: Task<Void, Never>?
+    /// Tells a late "bound" callback from a server that has since stopped apart from the current one.
+    private var serverGeneration = 0
+    private var observers: [NSObjectProtocol] = []
 
     var remindersGranted: Bool { reminderStatus == .fullAccess }
     var calendarGranted: Bool { calendarStatus == .fullAccess }
@@ -65,9 +105,38 @@ final class BridgeController: ObservableObject {
         }
     }
 
-    var curlExample: String {
+    /// The key the test command uses: the first that may write, as that one can try everything.
+    var testKey: StoredKey? {
+        keys.first { $0.access == .readWrite } ?? keys.first
+    }
+
+    func curlCommand(for key: StoredKey) -> String {
         let target = bindMode == .allInterfaces ? "<mac-ip>" : host
-        return "curl -H \"Authorization: Bearer \(apiKey)\" \"http://\(target):\(port)/api/events\""
+        let authority = target.contains(":") ? "[\(target)]" : target
+        return "curl -H \"Authorization: Bearer \(key.secret)\" \"http://\(authority):\(port)/api/events\""
+    }
+
+    /// A subscription URL for a calendar app. Only a Read key works in it: a URL ends up in logs and
+    /// sync settings, so the API refuses a key that can write there.
+    func feedURL(for key: StoredKey, calendar: CalendarDTO) -> String {
+        let target = bindMode == .allInterfaces ? "<mac-ip>" : host
+        let authority = target.contains(":") ? "[\(target)]" : target
+        let id = calendar.id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed.subtracting(["/"]))
+            ?? calendar.id
+        let secret = key.secret.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? key.secret
+        return "http://\(authority):\(port)/api/calendars/\(id)/events.ics?key=\(secret)"
+    }
+
+    /// Calendars a feed can be made for: shared, in Settings' order.
+    var sharedCalendars: [CalendarDTO] {
+        calendars.filter { exposedCalendars.contains($0.id) }
+    }
+
+    /// The Swagger UI page, opened on this Mac: a browser cannot connect to 0.0.0.0, so loopback stands in.
+    var docsURL: URL? {
+        let target = bindMode == .allInterfaces ? "127.0.0.1" : host
+        let authority = target.contains(":") ? "[\(target)]" : target
+        return URL(string: "http://\(authority):\(port)/docs")
     }
 
     init() {
@@ -75,8 +144,26 @@ final class BridgeController: ObservableObject {
         bindMode = BindMode(rawValue: defaults.string(forKey: SettingsKey.bindMode) ?? "") ?? .localhost
         customHost = defaults.string(forKey: SettingsKey.customHost) ?? ""
         port = defaults.object(forKey: SettingsKey.port) as? Int ?? 8787
-        apiKey = APIKeyStore.loadOrCreate()
+        keepAwake = defaults.bool(forKey: SettingsKey.keepAwake)
+        keyLastUsed = defaults.dictionary(forKey: SettingsKey.keyLastUsed) as? [String: Date] ?? [:]
+        activity = ActivityLog.load()
         launchAtLogin = SMAppService.mainApp.status == .enabled
+        reloadKeys()
+
+        // It doesn't say what changed, or which of the two stores saw it; the feed sorts that out.
+        let changes = changes
+        observers.append(NotificationCenter.default.addObserver(
+            forName: .EKEventStoreChanged, object: nil, queue: nil
+        ) { _ in changes.eventStoreChanged() })
+        // Released by the system when the process ends anyway; this says so promptly and on purpose.
+        observers.append(NotificationCenter.default.addObserver(
+            forName: NSApplication.willTerminateNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.bonjour.stop()
+                self?.sleepAssertion.hold(false, reason: "")
+            }
+        })
 
         Task {
             // Only talk to Notes at launch if it was set up before, to avoid surprise prompts.
@@ -132,25 +219,57 @@ final class BridgeController: ObservableObject {
             return
         }
 
-        let config = ServerConfig(host: host, port: port, apiKey: apiKey)
+        let config = ServerConfig(host: host, port: port)
+        let keyRing = keyRing
         let server = BridgeServer(
-            config: config, reminders: reminders, calendar: calendarService, notes: notes
-        ) { [weak self] line in
-            Task { @MainActor in self?.append(line) }
-        }
+            config: config, keys: { keyRing.keys },
+            reminders: reminders, calendar: calendarService, notes: notes,
+            access: SourceAccess(
+                reminders: { RemindersService.authorizationStatus == .fullAccess },
+                calendar: { CalendarService.authorizationStatus == .fullAccess }),
+            exposed: ExposedIDs(
+                reminderLists: { Exposure.reminderLists.ids() },
+                calendars: { Exposure.calendars.ids() },
+                noteFolders: { Exposure.noteFolders.ids() },
+                writableReminderLists: { Exposure.reminderLists.writableIDs() },
+                writableCalendars: { Exposure.calendars.writableIDs() },
+                writableNoteFolders: { Exposure.noteFolders.writableIDs() }),
+            changes: changes,
+            onRequest: { [weak self] line in
+                Task { @MainActor in self?.append(line) }
+            },
+            onKeyUsed: { [weak self] id in
+                Task { @MainActor in self?.noteKeyUsed(id) }
+            },
+            onWrite: { [weak self] record in
+                Task { @MainActor in self?.record(record) }
+            })
 
         lastError = nil
         isRunning = true
         append("Listening on \(config.host):\(config.port)")
 
+        serverGeneration += 1
+        let generation = serverGeneration
+        let advertise = bindMode == .allInterfaces
+        let onRunning: @Sendable () -> Void = { [weak self] in
+            guard advertise else { return }
+            Task { @MainActor in
+                guard let self, self.serverGeneration == generation, self.serverTask != nil else { return }
+                self.bonjour.start(port: config.port)
+                self.isAdvertising = self.bonjour.isAdvertising
+            }
+        }
         serverTask = Task {
             do {
-                try await server.run()
+                try await server.run(onRunning: onRunning)
             } catch is CancellationError {
                 // normal stop
             } catch {
                 self.lastError = Self.describe(error, port: config.port)
             }
+            self.bonjour.stop()
+            self.isAdvertising = false
             self.isRunning = false
             self.serverTask = nil
             self.append("Server stopped")
@@ -193,9 +312,114 @@ final class BridgeController: ObservableObject {
         restart()
     }
 
-    func regenerateAPIKey() {
-        apiKey = APIKeyStore.regenerate()
-        restart()
+    private func updateKeepAwake() {
+        sleepAssertion.hold(keepAwake && isRunning, reason: "\(Bundle.main.appDisplayName) is serving its API")
+        isKeepingAwake = sleepAssertion.isHeld
+    }
+
+    // MARK: Keys
+
+    /// Keys are read per request, so none of these needs a restart.
+    func reloadKeys() {
+        do {
+            keys = try KeyStore.load()
+            keyError = nil
+        } catch {
+            keys = []
+            keyError = String(describing: error)
+        }
+        keyRing.set(keys.map(\.apiKey))
+    }
+
+    /// The new key, with its secret, or nil when the Keychain refused it.
+    @discardableResult
+    func addKey(name: String, access: KeyAccess) -> StoredKey? {
+        let key = StoredKey(id: UUID().uuidString, name: Self.keyName(name), access: access, created: Date(),
+                            secret: KeyStore.generateSecret())
+        return commit(keys + [key]) ? key : nil
+    }
+
+    func setAccess(_ access: KeyAccess, of id: String) {
+        update(id) { $0.access = access }
+    }
+
+    func renameKey(_ id: String, to name: String) {
+        update(id) { $0.name = Self.keyName(name) }
+    }
+
+    /// The key with its new secret; the old one stops working at once.
+    @discardableResult
+    func regenerateKey(_ id: String) -> StoredKey? {
+        update(id) { $0.secret = KeyStore.generateSecret() }
+        return keys.first { $0.id == id }
+    }
+
+    func deleteKey(_ id: String) {
+        guard commit(keys.filter { $0.id != id }) else { return }
+        keyLastUsed[id] = nil
+        UserDefaults.standard.set(keyLastUsed, forKey: SettingsKey.keyLastUsed)
+    }
+
+    private func update(_ id: String, _ change: (inout StoredKey) -> Void) {
+        var new = keys
+        guard let index = new.firstIndex(where: { $0.id == id }) else { return }
+        change(&new[index])
+        commit(new)
+    }
+
+    /// Saved first, then served: a key only works once it is safely stored.
+    @discardableResult
+    private func commit(_ new: [StoredKey]) -> Bool {
+        do {
+            try KeyStore.save(new)
+        } catch {
+            keyError = String(describing: error)
+            return false
+        }
+        keys = new
+        keyError = nil
+        keyRing.set(new.map(\.apiKey))
+        return true
+    }
+
+    private static func keyName(_ name: String) -> String {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "Unnamed" : trimmed
+    }
+
+    /// Kept to the minute: a busy client would otherwise rewrite the preferences on every request.
+    private func noteKeyUsed(_ id: String) {
+        let now = Date()
+        if let last = keyLastUsed[id], now.timeIntervalSince(last) < 60 { return }
+        keyLastUsed[id] = now
+        UserDefaults.standard.set(keyLastUsed, forKey: SettingsKey.keyLastUsed)
+    }
+
+    // MARK: Activity
+
+    private func record(_ record: WriteRecord) {
+        activity.insert(ActivityEntry(record), at: 0)
+        if activity.count > ActivityLog.limit { activity.removeLast(activity.count - ActivityLog.limit) }
+        ActivityLog.save(activity)
+    }
+
+    func clearActivity() {
+        activity = []
+        ActivityLog.save(activity)
+    }
+
+    // MARK: First launch
+
+    /// True once: on a launch with nothing shared and Settings never opened, which is how a new
+    /// user starts. Marked here so it can't happen twice, even if the window never shows.
+    func takeFirstLaunch() -> Bool {
+        let defaults = UserDefaults.standard
+        guard !defaults.bool(forKey: SettingsKey.settingsOpened) else { return false }
+        let nothingShared = Exposure.reminderLists.ids().isEmpty && Exposure.calendars.ids().isEmpty
+            && Exposure.noteFolders.ids().isEmpty
+        guard nothingShared else { return false }
+        defaults.set(true, forKey: SettingsKey.settingsOpened)
+        return true
     }
 
     func setLaunchAtLogin(_ enabled: Bool) {

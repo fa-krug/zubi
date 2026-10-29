@@ -9,9 +9,9 @@ options:
   groupSortPosition: top
 
 packages:
-  Hummingbird:
-    url: https://github.com/hummingbird-project/hummingbird.git
-    from: 2.0.0
+  # Everything HTTP, and the OpenAPI contract its tests hold it to. Hummingbird comes in through it.
+  ZubiAPI:
+    path: Packages/ZubiAPI
 
 settings:
   base:
@@ -43,8 +43,7 @@ targets:
       - path: NOTICE.md
         buildPhase: resources
     dependencies:
-      - package: Hummingbird
-        product: Hummingbird
+      - package: ZubiAPI
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: de.fa-krug.zubi

@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum SettingsTab: CaseIterable, Identifiable {
-    case general, server, api, reminders, calendars, notes, about
+    case general, server, keys, activity, reminders, calendars, notes, about
     /// The case, never an index: a selectable `List` flattens section and row IDs together.
     var id: Self { self }
 
@@ -9,7 +9,8 @@ enum SettingsTab: CaseIterable, Identifiable {
         switch self {
         case .general: return "General"
         case .server: return "Server"
-        case .api: return "API Key"
+        case .keys: return "Keys"
+        case .activity: return "Activity"
         case .reminders: return "Reminders"
         case .calendars: return "Calendars"
         case .notes: return "Notes"
@@ -21,7 +22,8 @@ enum SettingsTab: CaseIterable, Identifiable {
         switch self {
         case .general: return "switch.2"
         case .server: return "network"
-        case .api: return "key"
+        case .keys: return "key"
+        case .activity: return "clock.arrow.circlepath"
         case .reminders: return "checklist"
         case .calendars: return "calendar"
         case .notes: return "note.text"
@@ -34,7 +36,8 @@ enum SettingsTab: CaseIterable, Identifiable {
         switch self {
         case .general: return .gray
         case .server: return .blue
-        case .api: return .purple
+        case .keys: return .purple
+        case .activity: return .teal
         case .reminders: return .orange
         case .calendars: return .red
         case .notes: return .yellow
@@ -71,7 +74,7 @@ enum SettingsSection: CaseIterable, Identifiable {
 
     var tabs: [SettingsTab] {
         switch self {
-        case .app: return [.general, .server, .api]
+        case .app: return [.general, .server, .keys, .activity]
         case .sources: return [.reminders, .calendars, .notes]
         case .about: return [.about]
         }

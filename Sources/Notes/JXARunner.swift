@@ -1,12 +1,19 @@
 import Foundation
+import ZubiAPI
 
-enum NotesError: Error, CustomStringConvertible {
+/// The API answers 404 for `.notFound`, 409 for `.locked` and 503 for anything else.
+enum NotesError: SourceError {
     case scriptFailed(String)
     case badOutput
 
-    var isNotFound: Bool {
-        if case .scriptFailed(let message) = self { return message.contains("-1728") }
-        return false
+    /// What the write scripts throw for a locked note, so it can be told apart from other failures.
+    static let lockedMarker = "ZUBI_LOCKED"
+
+    var kind: SourceErrorKind {
+        guard case .scriptFailed(let message) = self else { return .unavailable }
+        if message.contains(Self.lockedMarker) { return .locked }
+        if message.contains("-1728") { return .notFound }
+        return .unavailable
     }
 
     var description: String {
@@ -15,7 +22,11 @@ enum NotesError: Error, CustomStringConvertible {
             if message.contains("-1743") {
                 return "Not allowed to control Notes. Enable it under Privacy & Security > Automation."
             }
-            if isNotFound { return "Note or folder not found." }
+            switch kind {
+            case .notFound: return "Note or folder not found."
+            case .locked: return "The note is locked, and Zubi never changes a locked note."
+            default: break
+            }
             if message.contains("timed out") { return "Notes did not respond in time." }
             return "Notes script failed: \(message.trimmingCharacters(in: .whitespacesAndNewlines))"
         case .badOutput:
@@ -43,7 +54,8 @@ enum JXARunner {
                 do {
                     try process.run()
                 } catch {
-                    continuation.resume(throwing: error)
+                    // As a NotesError, so the API answers 503 like for any other failure to read Notes.
+                    continuation.resume(throwing: NotesError.scriptFailed(error.localizedDescription))
                     return
                 }
 

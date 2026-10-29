@@ -1,4 +1,5 @@
 import SwiftUI
+import ZubiAPI
 
 struct NotesPane: View {
     @EnvironmentObject private var controller: BridgeController
@@ -20,8 +21,8 @@ struct NotesPane: View {
                     ProgressView().controlSize(.small)
                 }
             } footer: {
-                Text("Notes has no public API. Zubi reads it through Notes.app scripting, and locked "
-                     + "notes stay private.")
+                Text("Notes has no public API. Zubi reads and edits it through Notes.app scripting, and "
+                     + "locked notes stay private and unchanged.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -33,7 +34,13 @@ struct NotesPane: View {
                 ForEach(groupedByAccount(controller.noteFolders, account: \.account), id: \.account) { group in
                     Section(group.account) {
                         ForEach(group.items) { folder in
-                            ExposureToggle(id: folder.id, title: folder.name, selection: $controller.exposedNoteFolders) {
+                            AccessLevelRow(
+                                id: folder.id, title: folder.name, canWrite: folder.writable,
+                                readOnlyReason: "Notes doesn't allow editing notes here, so it can only "
+                                    + "be read.",
+                                exposed: $controller.exposedNoteFolders,
+                                writable: $controller.writableNoteFolders
+                            ) {
                                 Image(systemName: "folder.fill")
                                     .foregroundStyle(.yellow)
                             }

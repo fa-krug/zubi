@@ -16,6 +16,11 @@ struct MenuView: View {
                      ? "Running on \(controller.host):\(String(controller.port))"
                      : "Stopped")
             }
+            if controller.isKeepingAwake {
+                Label("Keeping this Mac awake", systemImage: "cup.and.saucer")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
 
             if !controller.hasAnySource {
                 Text("No data source connected yet. Open Settings.")

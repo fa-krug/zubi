@@ -8,6 +8,14 @@ enum AppPaths {
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
     }
+
+    /// `~/Library/Application Support/<bundle-id>/`, for what must survive a cache purge.
+    static func applicationSupport() -> URL {
+        let root = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let url = root.appendingPathComponent(Bundle.main.bundleIdentifier ?? "Zubi", isDirectory: true)
+        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }
 }
 
 extension Bundle {

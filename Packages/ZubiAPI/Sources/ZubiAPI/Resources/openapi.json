@@ -1,0 +1,1816 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Zubi API",
+    "version": "1",
+    "description": "Reads, creates and edits reminders, events and notes in the lists, calendars and Notes folders a Mac running Zubi shares. Each one is set in Zubi's Settings to Off, Read, or Read & Write: anything Off answers 404, and writing to something shared read-only answers 403. Nothing is ever deleted through the API. Every `/api` route needs `Authorization: Bearer <api-key>`. Each device gets its own key under Settings › Keys, either **Read** or **Read & Write**: a read-only key can never change anything, whatever the item's setting, and a change needs both the key and the list, calendar or folder to allow writing. `/api/key` tells a client which key it holds.\n\nDates are ISO 8601 in UTC, or `YYYY-MM-DD` in the Mac's time zone for all-day items.",
+    "license": {
+      "name": "MIT",
+      "identifier": "MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "/",
+      "description": "The Zubi serving this page"
+    }
+  ],
+  "security": [
+    {
+      "bearer": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Reminders"
+    },
+    {
+      "name": "Calendar"
+    },
+    {
+      "name": "Notes"
+    },
+    {
+      "name": "Service"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "health",
+        "tags": [
+          "Service"
+        ],
+        "summary": "Liveness check",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Zubi is running.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "const": "ok"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "operationId": "openapi",
+        "tags": [
+          "Service"
+        ],
+        "summary": "This document",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "The OpenAPI document.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/docs": {
+      "get": {
+        "operationId": "docs",
+        "tags": [
+          "Service"
+        ],
+        "summary": "Swagger UI for this document",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "An HTML page.",
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/key": {
+      "get": {
+        "operationId": "getKey",
+        "tags": [
+          "Service"
+        ],
+        "summary": "The key you are using",
+        "responses": {
+          "200": {
+            "description": "Its name and access.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KeyInfo"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong API key. The body is empty."
+          }
+        }
+      }
+    },
+    "/api/changes": {
+      "get": {
+        "operationId": "watchChanges",
+        "tags": [
+          "Service"
+        ],
+        "summary": "Be told when something changes",
+        "description": "A server-sent event stream that stays open. Each message is `event: change` with a `Change` as JSON in `data`; a comment line is sent every 30 seconds to keep the connection alive. Reminders and Calendar report every change, wherever it was made. Notes has no change notifications, so only changes made through Zubi are reported for it. Messages carry no data: re-read what you show.",
+        "responses": {
+          "200": {
+            "description": "The stream, open until the client disconnects or Zubi stops.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong API key. The body is empty."
+          }
+        }
+      }
+    },
+    "/api/lists": {
+      "get": {
+        "operationId": "listReminderLists",
+        "tags": [
+          "Reminders"
+        ],
+        "summary": "Exposed reminder lists",
+        "responses": {
+          "200": {
+            "description": "Exposed lists, by account then title.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong API key. The body is empty."
+          },
+          "403": {
+            "description": "Reminders access is not granted on the Mac.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Each list says whether it is `writable`."
+      }
+    },
+    "/api/reminders": {
+      "get": {
+        "operationId": "listReminders",
+        "tags": [
+          "Reminders"
+        ],
+        "summary": "Reminders in exposed lists",
+        "parameters": [
+          {
+            "name": "list",
+            "in": "query",
+            "description": "One list, by ID or title.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "Groceries"
+          },
+          {
+            "name": "due",
+            "in": "query",
+            "description": "`today`: incomplete and due today. `overdue`: incomplete and due before today.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "today",
+                "overdue"
+              ]
+            },
+            "example": "today"
+          },
+          {
+            "name": "completed",
+            "in": "query",
+            "description": "`true` includes completed reminders. Ignored with `due`.",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "example": "true"
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Only items whose title or notes contain this text, ignoring case.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "milk"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Matching reminders.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemindersResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`due` is neither `today` nor `overdue`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong API key. The body is empty."
+          },
+          "403": {
+            "description": "Reminders access is not granted on the Mac.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The list is unknown or not exposed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createReminder",
+        "tags": [
+          "Reminders"
+        ],
+        "summary": "Create a reminder",
+        "requestBody": {
+          "required": true,
+          "description": "The new reminder.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReminderCreate"
+              },
+              "example": {
+                "title": "Buy milk",
+                "list": "Groceries",
+                "due": "2026-11-02",
+                "priority": 5
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The reminder as created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Reminder"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is malformed: a missing or empty title, an unknown field, or a bad date.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong API key. The body is empty."
+          },
+          "403": {
+            "description": "The target is shared read-only, or access is not granted on the Mac. Also when the request's key is read-only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The list is unknown or not shared.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/reminders/{id}": {
+      "patch": {
+        "operationId": "updateReminder",
+        "tags": [
+          "Reminders"
+        ],
+        "summary": "Edit a reminder",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The reminder's ID, from `/api/reminders`.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "R2"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "The fields to change.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReminderUpdate"
+              },
+              "example": {
+                "isCompleted": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The reminder after the change.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Reminder"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is malformed: an empty title, an unknown field, or a bad date.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong API key. The body is empty."
+          },
+          "403": {
+            "description": "The reminder's list, or the list it would move to, is read-only, or access is not granted on the Mac. Also when the request's key is read-only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The reminder is unknown, or its list is not shared.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/calendars": {
+      "get": {
+        "operationId": "listCalendars",
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "Exposed calendars",
+        "responses": {
+          "200": {
+            "description": "Exposed calendars, by account then title.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong API key. The body is empty."
+          },
+          "403": {
+            "description": "Calendar access is not granted on the Mac.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/calendars/{id}/events.ics": {
+      "get": {
+        "operationId": "calendarFeed",
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "Subscribe to a calendar",
+        "description": "The calendar's events as iCalendar, for calendar apps that subscribe to a URL. It takes the key as a header or, for apps that can't send one, as `?key=`; a key in the URL must be a Read key.",
+        "security": [
+          {
+            "bearer": []
+          },
+          {
+            "queryKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The calendar, by ID or title.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "Work"
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "First day, `YYYY-MM-DD`. Defaults to 30 days before today.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-10-01"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "Last day, inclusive. Defaults to a year after today. At most two years after `from`.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-12-31"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The events, one `VEVENT` per occurrence.",
+            "content": {
+              "text/calendar": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A date is malformed, `to` is before `from`, or the range exceeds two years.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong API key, or a Read & Write key given as `?key=`. The body is empty."
+          },
+          "403": {
+            "description": "Calendar access is not granted on the Mac.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The calendar is unknown or not shared.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/events": {
+      "get": {
+        "operationId": "listEvents",
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "Events in exposed calendars",
+        "description": "Recurring events come back as individual occurrences, sorted by start.",
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "description": "First day, `YYYY-MM-DD` in the Mac's time zone. Defaults to today.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-11-02"
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "description": "Last day, inclusive, `YYYY-MM-DD` in the Mac's time zone. Defaults to six days after today. At most a year after `from`.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-11-06"
+          },
+          {
+            "name": "calendar",
+            "in": "query",
+            "description": "One calendar, by ID or title.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "Work"
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Only items whose title or notes contain this text, ignoring case.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "standup"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Events in the range.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A date is malformed, `to` is before `from`, or the range exceeds a year.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong API key. The body is empty."
+          },
+          "403": {
+            "description": "Calendar access is not granted on the Mac.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The calendar is unknown or not exposed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createEvent",
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "Create an event",
+        "requestBody": {
+          "required": true,
+          "description": "The new event.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventCreate"
+              },
+              "example": {
+                "title": "Dentist",
+                "calendar": "Work",
+                "start": "2026-11-03T09:00:00Z",
+                "end": "2026-11-03T09:30:00Z",
+                "location": "Main St 1"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The event as created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Event"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is malformed: a missing or empty title, an unknown field, a bad date, or `end` before `start`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong API key. The body is empty."
+          },
+          "403": {
+            "description": "The target is shared read-only, or access is not granted on the Mac. Also when the request's key is read-only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The calendar is unknown or not shared.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/events/{id}": {
+      "patch": {
+        "operationId": "updateEvent",
+        "tags": [
+          "Calendar"
+        ],
+        "summary": "Edit an event",
+        "description": "For a recurring event, `occurrence` picks the one occurrence to change; the rest of the series stays as it is.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The event's ID, from `/api/events`.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "E1"
+          },
+          {
+            "name": "occurrence",
+            "in": "query",
+            "description": "The occurrence's `start`, exactly as `/api/events` returned it. Required for a recurring event. For one that doesn't repeat it may be left out; if given, it must match the event's start.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "2026-11-02T09:00:00Z"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "The fields to change.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventUpdate"
+              },
+              "example": {
+                "title": "Standup (moved)",
+                "start": "2026-11-02T09:30:00Z",
+                "end": "2026-11-02T09:45:00Z"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The event, or the changed occurrence, after the change.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Event"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is malformed, `end` is before `start`, or the event recurs and `occurrence` is missing.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong API key. The body is empty."
+          },
+          "403": {
+            "description": "The event's calendar, or the calendar it would move to, is read-only, or access is not granted on the Mac. Also when the request's key is read-only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The event or occurrence is unknown, or its calendar is not shared.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/notes/folders": {
+      "get": {
+        "operationId": "listNoteFolders",
+        "tags": [
+          "Notes"
+        ],
+        "summary": "Exposed Notes folders",
+        "description": "Depth first, so a folder follows its parent.",
+        "responses": {
+          "200": {
+            "description": "Exposed folders.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteFoldersResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong API key. The body is empty."
+          },
+          "503": {
+            "description": "Notes could not be read, for example because Automation access is not granted.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/notes": {
+      "get": {
+        "operationId": "listNotes",
+        "tags": [
+          "Notes"
+        ],
+        "summary": "Note metadata, newest first",
+        "parameters": [
+          {
+            "name": "folder",
+            "in": "query",
+            "description": "One folder, by ID or name.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "Recipes"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "At most this many notes, 1 to 500. A value outside that range is clamped to it, and a non-number is ignored, rather than rejected.",
+            "schema": {
+              "type": "integer",
+              "default": 50
+            },
+            "example": 20
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Only notes whose title or text contains this, ignoring case. Searching text reads each note in the folder, so it can take a few seconds in a large one.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "pancake"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Notes, newest first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteSummariesResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong API key. The body is empty."
+          },
+          "404": {
+            "description": "The folder is unknown or not exposed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Notes could not be read.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createNote",
+        "tags": [
+          "Notes"
+        ],
+        "summary": "Create a note",
+        "requestBody": {
+          "required": true,
+          "description": "The new note.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteCreate"
+              },
+              "example": {
+                "folder": "Recipes",
+                "title": "Pancakes",
+                "text": "2 eggs\n250 ml milk"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The note as created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Note"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The body is malformed: a missing or empty title, an unknown field, or both `text` and `html`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong API key. The body is empty."
+          },
+          "403": {
+            "description": "The folder is shared read-only. Also when the request's key is read-only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The folder is unknown or not shared.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Notes could not be written.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/note": {
+      "get": {
+        "operationId": "getNote",
+        "tags": [
+          "Notes"
+        ],
+        "summary": "One note, with its text",
+        "description": "Note IDs are `x-coredata://` URLs, so the ID travels URL-encoded in the query.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "description": "The note's ID, from `/api/notes`.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "x-coredata://00000000-0000-0000-0000-000000000000/ICNote/p1"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The note. A locked note has no `plaintext` or `html`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Note"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`id` is missing.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong API key. The body is empty."
+          },
+          "404": {
+            "description": "The note is unknown, or its folder is not exposed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Notes could not be read.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateNote",
+        "tags": [
+          "Notes"
+        ],
+        "summary": "Edit a note",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "description": "The note's ID, from `/api/notes`.",
+            "schema": {
+              "type": "string"
+            },
+            "example": "x-coredata://00000000-0000-0000-0000-000000000000/ICNote/p1"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "description": "The fields to change.",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteUpdate"
+              },
+              "example": {
+                "text": "3 eggs\n250 ml milk"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The note after the change.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Note"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`id` is missing, or the body is malformed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong API key. The body is empty."
+          },
+          "403": {
+            "description": "The note's folder is shared read-only. Also when the request's key is read-only.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The note is unknown, or its folder is not shared.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The note is locked; Zubi never changes a locked note.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Notes could not be written.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "A key from Zubi › Settings › Keys."
+      },
+      "queryKey": {
+        "type": "apiKey",
+        "in": "query",
+        "name": "key",
+        "description": "A key as a query parameter, accepted only by the calendar feed, because calendar apps can't send headers. Only a Read key is accepted this way, since a URL ends up in logs and sync settings; a Read & Write key answers 401. Give each subscribing app its own."
+      }
+    },
+    "schemas": {
+      "Error": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "message"
+            ],
+            "properties": {
+              "message": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "ReminderList": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "title",
+          "account",
+          "writable"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "account": {
+            "type": "string",
+            "description": "The account the list belongs to, such as iCloud."
+          },
+          "color": {
+            "type": "string",
+            "description": "`#RRGGBB`, as Reminders shows the list.",
+            "pattern": "^#[0-9A-F]{6}$"
+          },
+          "writable": {
+            "type": "boolean",
+            "description": "Whether this API may create and edit items here: set to Read & Write in Zubi's Settings, and allowed by the source itself. It is `false` for every item when the request's key is read-only."
+          }
+        }
+      },
+      "Reminder": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "title",
+          "listID",
+          "listTitle",
+          "isCompleted",
+          "priority",
+          "dueAllDay"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "listID": {
+            "type": "string"
+          },
+          "listTitle": {
+            "type": "string"
+          },
+          "isCompleted": {
+            "type": "boolean"
+          },
+          "priority": {
+            "type": "integer",
+            "description": "EventKit priority: 0 none, 1–4 high, 5 medium, 6–9 low.",
+            "minimum": 0,
+            "maximum": 9
+          },
+          "due": {
+            "type": "string",
+            "description": "ISO 8601 date-time in UTC, or `YYYY-MM-DD` in the Mac's time zone when `dueAllDay`."
+          },
+          "dueAllDay": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Calendar": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "title",
+          "account",
+          "writable"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "account": {
+            "type": "string"
+          },
+          "color": {
+            "type": "string",
+            "description": "`#RRGGBB`, as Calendar shows it.",
+            "pattern": "^#[0-9A-F]{6}$"
+          },
+          "writable": {
+            "type": "boolean",
+            "description": "Whether this API may create and edit items here: set to Read & Write in Zubi's Settings, and allowed by the source itself. A subscribed or holiday calendar never is. It is `false` for every item when the request's key is read-only."
+          }
+        }
+      },
+      "Event": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "title",
+          "start",
+          "end",
+          "isAllDay",
+          "calendarID",
+          "calendarTitle"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "EventKit's event identifier. Every occurrence of a recurring event shares it, so it is not unique within a response."
+          },
+          "title": {
+            "type": "string"
+          },
+          "start": {
+            "type": "string",
+            "description": "ISO 8601 date-time in UTC, or `YYYY-MM-DD` in the Mac's time zone when `isAllDay`."
+          },
+          "end": {
+            "type": "string",
+            "description": "As `start`. For an all-day event the day is inclusive."
+          },
+          "isAllDay": {
+            "type": "boolean"
+          },
+          "location": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "calendarID": {
+            "type": "string"
+          },
+          "calendarTitle": {
+            "type": "string"
+          }
+        }
+      },
+      "NoteFolder": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "account",
+          "writable"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "account": {
+            "type": "string"
+          },
+          "parentID": {
+            "type": "string",
+            "description": "The enclosing folder. Absent for a folder at the top of its account."
+          },
+          "writable": {
+            "type": "boolean",
+            "description": "Whether this API may create and edit items here: set to Read & Write in Zubi's Settings, and allowed by the source itself. It is `false` for every item when the request's key is read-only."
+          }
+        }
+      },
+      "NoteSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "title",
+          "modified",
+          "locked"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "modified": {
+            "type": "string",
+            "description": "ISO 8601 date-time in UTC."
+          },
+          "locked": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Note": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "title",
+          "folderID",
+          "created",
+          "modified",
+          "locked"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "folderID": {
+            "type": "string"
+          },
+          "created": {
+            "type": "string",
+            "description": "ISO 8601 date-time in UTC."
+          },
+          "modified": {
+            "type": "string",
+            "description": "ISO 8601 date-time in UTC."
+          },
+          "locked": {
+            "type": "boolean"
+          },
+          "plaintext": {
+            "type": "string",
+            "description": "The whole note as plain text, title first. Absent when the note is locked. To edit the text, send only what follows the title."
+          },
+          "html": {
+            "type": "string",
+            "description": "The whole note as HTML, title first. Absent when the note is locked."
+          }
+        }
+      },
+      "ListsResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "lists"
+        ],
+        "properties": {
+          "lists": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReminderList"
+            }
+          }
+        }
+      },
+      "RemindersResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "reminders"
+        ],
+        "properties": {
+          "reminders": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Reminder"
+            }
+          }
+        }
+      },
+      "CalendarsResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "calendars"
+        ],
+        "properties": {
+          "calendars": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Calendar"
+            }
+          }
+        }
+      },
+      "EventsResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "events"
+        ],
+        "properties": {
+          "events": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Event"
+            }
+          }
+        }
+      },
+      "NoteFoldersResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "folders"
+        ],
+        "properties": {
+          "folders": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NoteFolder"
+            }
+          }
+        }
+      },
+      "NoteSummariesResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "notes"
+        ],
+        "properties": {
+          "notes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/NoteSummary"
+            }
+          }
+        }
+      },
+      "ReminderCreate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "title",
+          "list"
+        ],
+        "description": "A new reminder. Its list must be writable.",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Not empty."
+          },
+          "list": {
+            "type": "string",
+            "description": "The list, by ID or title."
+          },
+          "notes": {
+            "type": "string"
+          },
+          "due": {
+            "type": "string",
+            "description": "When it is due: ISO 8601 date-time with a time zone (`2026-11-02T09:00:00Z`, `2026-11-02T10:00:00+01:00`), or `YYYY-MM-DD` in the Mac's time zone for a date without a time. A date makes an all-day reminder."
+          },
+          "priority": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9,
+            "description": "EventKit priority: 0 none (the default), 1–4 high, 5 medium, 6–9 low."
+          }
+        }
+      },
+      "ReminderUpdate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [],
+        "description": "The fields to change; a field left out stays as it is, and `null` clears it.",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Not empty."
+          },
+          "list": {
+            "type": "string",
+            "description": "Move to this list, by ID or title. It must be writable too."
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "New notes, or `null` to clear them."
+          },
+          "due": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "New due date, as ISO 8601 with a time zone or `YYYY-MM-DD` for a date without a time, or `null` to clear it."
+          },
+          "priority": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9
+          },
+          "isCompleted": {
+            "type": "boolean",
+            "description": "Complete or reopen the reminder."
+          }
+        }
+      },
+      "EventCreate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "title",
+          "calendar",
+          "start",
+          "end"
+        ],
+        "description": "A new event. Its calendar must be writable.",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Not empty."
+          },
+          "calendar": {
+            "type": "string",
+            "description": "The calendar, by ID or title."
+          },
+          "start": {
+            "type": "string",
+            "description": "ISO 8601 date-time with a time zone (`2026-11-02T09:00:00Z`, `2026-11-02T10:00:00+01:00`), or `YYYY-MM-DD` in the Mac's time zone for a date without a time."
+          },
+          "end": {
+            "type": "string",
+            "description": "As `start`, and not before it. For an all-day event the day is inclusive."
+          },
+          "isAllDay": {
+            "type": "boolean",
+            "description": "An all-day event. Then `start` and `end` are dates. Defaults to `false`."
+          },
+          "location": {
+            "type": "string"
+          },
+          "notes": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        }
+      },
+      "EventUpdate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [],
+        "description": "The fields to change; a field left out stays as it is, and `null` clears it.",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Not empty."
+          },
+          "calendar": {
+            "type": "string",
+            "description": "Move to this calendar, by ID or title. It must be writable too."
+          },
+          "start": {
+            "type": "string",
+            "description": "ISO 8601 date-time with a time zone (`2026-11-02T09:00:00Z`, `2026-11-02T10:00:00+01:00`), or `YYYY-MM-DD` in the Mac's time zone for a date without a time."
+          },
+          "end": {
+            "type": "string",
+            "description": "As `start`, and not before it. For an all-day event the day is inclusive."
+          },
+          "isAllDay": {
+            "type": "boolean",
+            "description": "Turn the event into an all-day event or back. Changing it needs `start` and `end` in the matching form: dates for all-day, date-times otherwise."
+          },
+          "location": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "New location, or `null` to clear it."
+          },
+          "notes": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "New notes, or `null` to clear them."
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "New URL, or `null` to clear it."
+          }
+        }
+      },
+      "NoteCreate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "folder",
+          "title"
+        ],
+        "description": "A new note. Its folder must be writable. Give its text as `text` or as `html`, not both.",
+        "properties": {
+          "folder": {
+            "type": "string",
+            "description": "The folder, by ID or name."
+          },
+          "title": {
+            "type": "string",
+            "description": "Not empty. Notes shows it as the first line."
+          },
+          "text": {
+            "type": "string",
+            "description": "The body below the title, as plain text; line breaks are kept. Don't repeat the title: Notes shows `title` as the first line."
+          },
+          "html": {
+            "type": "string",
+            "description": "The body below the title, as HTML."
+          }
+        }
+      },
+      "NoteUpdate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [],
+        "description": "The fields to change. `text` or `html` replaces the whole body, not both.",
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "Not empty."
+          },
+          "text": {
+            "type": "string",
+            "description": "The new body below the title, as plain text. The title stays unless `title` is given too."
+          },
+          "html": {
+            "type": "string",
+            "description": "The new body below the title, as HTML."
+          }
+        }
+      },
+      "KeyInfo": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "access"
+        ],
+        "description": "The key this request was made with.",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "The name it was given in Zubi's Settings."
+          },
+          "access": {
+            "type": "string",
+            "description": "`read` can only read; `readWrite` may also create and edit where items allow it.",
+            "enum": [
+              "read",
+              "readWrite"
+            ]
+          }
+        }
+      },
+      "Change": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source",
+          "origin"
+        ],
+        "description": "One message on `/api/changes`: something changed, so re-read what you show.",
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "What changed.",
+            "enum": [
+              "reminders",
+              "calendar",
+              "notes"
+            ]
+          },
+          "origin": {
+            "type": "string",
+            "description": "`zubi` when a request through this API made the change; `elsewhere` when it came from the Mac, iCloud or another device.",
+            "enum": [
+              "zubi",
+              "elsewhere"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

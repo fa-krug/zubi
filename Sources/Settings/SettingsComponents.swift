@@ -62,22 +62,51 @@ struct AccessRow: View {
     }
 }
 
-/// A checkbox row bound to membership of `id` in a set of exposed IDs.
-struct ExposureToggle<Icon: View>: View {
+/// One list, calendar or folder, with what the API may do with it: Off, Read, or Read & Write.
+/// Writable IDs stay a subset of exposed ones, so Off always means 404, reads and writes alike.
+struct AccessLevelRow<Icon: View>: View {
     let id: String
     let title: String
-    @Binding var selection: Set<String>
+    /// Whether the source itself allows changes; when it doesn't, Read & Write can't be picked.
+    let canWrite: Bool
+    /// Why `canWrite` is false, for the tooltip.
+    let readOnlyReason: String
+    @Binding var exposed: Set<String>
+    @Binding var writable: Set<String>
     @ViewBuilder let icon: () -> Icon
 
     var body: some View {
-        Toggle(isOn: Binding(
-            get: { selection.contains(id) },
-            set: { isOn in
-                if isOn { selection.insert(id) } else { selection.remove(id) }
+        LabeledContent {
+            Picker(title, selection: level) {
+                ForEach(AccessLevel.allCases) { level in
+                    Text(level.label)
+                        .tag(level)
+                        .disabled(level == .readWrite && !canWrite)
+                }
             }
-        )) {
+            .labelsHidden()
+            .pickerStyle(.menu)
+            .fixedSize()
+            .help(canWrite
+                  ? "Off hides it. Read shares it. Read & Write also lets the API add and edit items."
+                  : readOnlyReason)
+        } label: {
             Label { Text(title) } icon: { icon() }
         }
+    }
+
+    /// A writable ID the source no longer allows shows as Read, which is all the API does with it.
+    private var level: Binding<AccessLevel> {
+        Binding(
+            get: {
+                guard exposed.contains(id) else { return .off }
+                return canWrite && writable.contains(id) ? .readWrite : .read
+            },
+            set: { level in
+                if level == .off { exposed.remove(id) } else { exposed.insert(id) }
+                if level == .readWrite && canWrite { writable.insert(id) } else { writable.remove(id) }
+            }
+        )
     }
 }
 

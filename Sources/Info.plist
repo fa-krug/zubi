@@ -27,15 +27,21 @@
 	<key>LSUIElement</key>
 	<true/>
 	<key>NSRemindersUsageDescription</key>
-	<string>Zubi serves your selected Reminders lists to devices on your network.</string>
+	<string>Zubi serves your selected Reminders lists to devices on your network, and adds and edits reminders in the lists you allow.</string>
 	<key>NSRemindersFullAccessUsageDescription</key>
-	<string>Zubi serves your selected Reminders lists to devices on your network.</string>
+	<string>Zubi serves your selected Reminders lists to devices on your network, and adds and edits reminders in the lists you allow.</string>
 	<key>NSCalendarsUsageDescription</key>
-	<string>Zubi serves your selected calendars to devices on your network.</string>
+	<string>Zubi serves your selected calendars to devices on your network, and adds and edits events in the calendars you allow.</string>
 	<key>NSCalendarsFullAccessUsageDescription</key>
-	<string>Zubi serves your selected calendars to devices on your network.</string>
+	<string>Zubi serves your selected calendars to devices on your network, and adds and edits events in the calendars you allow.</string>
 	<key>NSAppleEventsUsageDescription</key>
-	<string>Zubi reads your selected Notes folders to serve them to devices on your network.</string>
+	<string>Zubi reads your selected Notes folders to serve them to devices on your network, and adds and edits notes in the folders you allow.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_zubi._tcp</string>
+	</array>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Zubi announces itself on your local network so the zubi command can find it, while it serves on all interfaces.</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>Zubi</string>
 </dict>

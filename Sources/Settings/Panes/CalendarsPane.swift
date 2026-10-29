@@ -22,7 +22,12 @@ struct CalendarsPane: View {
                 ForEach(groupedByAccount(controller.calendars, account: \.account), id: \.account) { group in
                     Section(group.account.isEmpty ? "Calendars" : group.account) {
                         ForEach(group.items) { calendar in
-                            ExposureToggle(id: calendar.id, title: calendar.title, selection: $controller.exposedCalendars) {
+                            AccessLevelRow(
+                                id: calendar.id, title: calendar.title, canWrite: calendar.writable,
+                                readOnlyReason: "Calendar doesn't allow changes here, as with a subscribed "
+                                    + "or holiday calendar, so it can only be read.",
+                                exposed: $controller.exposedCalendars, writable: $controller.writableCalendars
+                            ) {
                                 Image(systemName: "circle.fill")
                                     .foregroundStyle(Color(hex: calendar.color) ?? .red)
                             }

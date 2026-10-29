@@ -2,6 +2,7 @@ import SwiftUI
 
 /// The window "Settings…" opens: a sidebar of tabs, as in System Settings and Blitz.
 struct SettingsView: View {
+    @EnvironmentObject private var controller: BridgeController
     #if DEBUG
     @State private var tab: SettingsTab = SettingsTab.debugLaunchTab ?? .general
     #else
@@ -38,6 +39,17 @@ struct SettingsView: View {
         }
         .navigationTitle(tab.title)
         .frame(minWidth: 700, minHeight: 520)
+        .onAppear {
+            UserDefaults.standard.set(true, forKey: SettingsKey.settingsOpened)
+            showRequestedTab()
+        }
+        .onChange(of: controller.requestedSettingsTab) { showRequestedTab() }
+    }
+
+    private func showRequestedTab() {
+        guard let requested = controller.requestedSettingsTab else { return }
+        tab = requested
+        controller.requestedSettingsTab = nil
     }
 
     @ViewBuilder
@@ -45,7 +57,8 @@ struct SettingsView: View {
         switch tab {
         case .general: GeneralPane()
         case .server: ServerPane()
-        case .api: APIKeyPane()
+        case .keys: KeysPane()
+        case .activity: ActivityPane()
         case .reminders: RemindersPane()
         case .calendars: CalendarsPane()
         case .notes: NotesPane()

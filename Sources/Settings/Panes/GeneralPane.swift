@@ -16,6 +16,14 @@ struct GeneralPane: View {
                 }
             }
 
+            Section("Availability") {
+                Toggle(isOn: $controller.keepAwake) {
+                    Text("Keep this Mac awake while Zubi serves")
+                    Text("Stops idle sleep while the server runs, so devices can always reach it. The display "
+                         + "still sleeps, and closing the lid still sleeps the Mac.")
+                }
+            }
+
             Section("Updates") {
                 Toggle(isOn: Binding(
                     get: { updates.automaticallyCheckForUpdates },

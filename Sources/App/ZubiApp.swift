@@ -14,6 +14,7 @@ struct ZubiApp: App {
         } label: {
             Image(nsImage: controller.isRunning ? MenuBarIcon.running : MenuBarIcon.stopped)
                 .accessibilityLabel(controller.isRunning ? "Zubi, running" : "Zubi, stopped")
+                .modifier(FirstLaunchSettings(controller: controller))
                 #if DEBUG
                 .modifier(DebugOpenSettings())
                 #endif
@@ -45,6 +46,24 @@ private enum MenuBarIcon {
         image.isTemplate = true
         return image
     }()
+}
+
+/// A new user, with nothing shared yet, would otherwise be left with only a menu bar icon. Once.
+private struct FirstLaunchSettings: ViewModifier {
+    let controller: BridgeController
+    @Environment(\.openWindow) private var openWindow
+
+    func body(content: Content) -> some View {
+        content.task {
+            #if DEBUG
+            guard SettingsTab.debugLaunchTab == nil else { return }
+            #endif
+            guard controller.takeFirstLaunch() else { return }
+            controller.requestedSettingsTab = .reminders
+            openWindow(id: "settings")
+            NSApp.activate(ignoringOtherApps: true)
+        }
+    }
 }
 
 #if DEBUG

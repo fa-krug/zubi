@@ -22,7 +22,13 @@ struct RemindersPane: View {
                 ForEach(groupedByAccount(controller.reminderLists, account: \.account), id: \.account) { group in
                     Section(group.account.isEmpty ? "Lists" : group.account) {
                         ForEach(group.items) { list in
-                            ExposureToggle(id: list.id, title: list.title, selection: $controller.exposedReminderLists) {
+                            AccessLevelRow(
+                                id: list.id, title: list.title, canWrite: list.writable,
+                                readOnlyReason: "Reminders doesn't allow changes to this list, so it can "
+                                    + "only be read.",
+                                exposed: $controller.exposedReminderLists,
+                                writable: $controller.writableReminderLists
+                            ) {
                                 Image(systemName: "list.bullet.circle.fill")
                                     .foregroundStyle(.white, Color(hex: list.color) ?? .orange)
                             }
@@ -44,7 +50,8 @@ struct ReloadFooter: View {
         Section {
         } footer: {
             HStack {
-                Text("Only ticked items are served. Everything else answers 404.")
+                Text("Off answers 404. Read shares the items; Read & Write also lets the API add and edit "
+                     + "them. Nothing is ever deleted.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()

@@ -35,6 +35,12 @@ struct ServerPane: View {
                 if controller.bindMode == .custom {
                     TextField("IP address", text: $controller.customHost)
                 }
+                if controller.bindMode == .allInterfaces {
+                    Text("Zubi also announces itself on the local network over Bonjour (\(BonjourAdvertiser.serviceType)), "
+                         + "so clients can find it by this Mac's name.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 TextField("Port", value: $controller.port, format: .number.grouping(.never))
             } header: {
                 Text("Network")

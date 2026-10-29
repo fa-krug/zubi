@@ -4,8 +4,10 @@ import Foundation
 @MainActor
 @Observable
 final class UpdateCheckStore {
+    /// The CLI publishes its releases here too, tagged `cli/vX.Y.Z`; `AppVersion` rejects those tags, so
+    /// they are skipped. A full page keeps a run of CLI releases from crowding out the app's latest.
     private nonisolated static let endpoint = URL(
-        string: "https://api.github.com/repos/\(ReleaseFeed.repository)/releases?per_page=20")!
+        string: "https://api.github.com/repos/\(ReleaseFeed.repository)/releases?per_page=100")!
     /// Daily, measured from `lastCheckedAt`, so relaunching never re-asks GitHub.
     private static let refreshInterval: TimeInterval = 24 * 3600
     /// Shorter retry, so a machine offline at launch sees a release soon after it reconnects.
