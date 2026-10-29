@@ -29,7 +29,7 @@ public release list is the feed. The code lives in `Sources/Updates/`, ported fr
   on the expanded copy before `replaceItemAt` runs, and the running app survives any failure untouched.
 - **Relaunching goes through `NSApp.terminate`, never `exit`.** That cancels the server task, so the
   port is released before the new copy starts and tries to bind it.
-- **Automatic checking is optional; Check for Updates never is.** Setup › 8. Updates › Automatically
+- **Automatic checking is optional; Check for Updates never is.** Settings › General › Automatically
   check for updates (`automaticallyCheckForUpdates` in `UserDefaults`, default on) is the one update
   preference. Turning it off cancels the pump, and `presentIfAvailable` refuses while it is off, so
   neither a late response nor the cached release can raise the window. Release metadata and the
@@ -90,8 +90,8 @@ activity to defer to: the coordinator withholds a prompt only while automatic ch
 also stops the pump.
 
 **Later means skip.** It records the version, so that release stops asking; a newer one still asks.
-**Check for Updates…**, in the menu bar popover and in Setup › 8. Updates, ignores the record and
-always offers whatever is newer than what is running. Setup › 8. Updates also shows the running
+**Check for Updates…**, in the menu bar popover and in Settings › General, ignores the record and
+always offers whatever is newer than what is running. Settings › General also shows the running
 version.
 
 ## The window

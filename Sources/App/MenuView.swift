@@ -18,7 +18,7 @@ struct MenuView: View {
             }
 
             if !controller.hasAnySource {
-                Text("No data source connected yet. Open Setup.")
+                Text("No data source connected yet. Open Settings.")
                     .font(.caption)
                     .foregroundStyle(Color.orange)
             }
@@ -47,8 +47,8 @@ struct MenuView: View {
                     if controller.isRunning { controller.stop() } else { controller.start() }
                 }
 
-                Button("Setup…") {
-                    openWindow(id: "setup")
+                Button("Settings…") {
+                    openWindow(id: "settings")
                     NSApp.activate(ignoringOtherApps: true)
                 }
 

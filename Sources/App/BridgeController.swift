@@ -149,12 +149,24 @@ final class BridgeController: ObservableObject {
             } catch is CancellationError {
                 // normal stop
             } catch {
-                self.lastError = error.localizedDescription
+                self.lastError = Self.describe(error, port: config.port)
             }
             self.isRunning = false
             self.serverTask = nil
             self.append("Server stopped")
         }
+    }
+
+    /// NIO's errors localize to "The operation couldn't be completed", which says nothing.
+    private static func describe(_ error: Error, port: Int) -> String {
+        let detail = String(describing: error)
+        if detail.contains("Address already in use") {
+            return "Port \(port) is already in use. Quit the other app using it, or pick another port."
+        }
+        if detail.contains("Can't assign requested address") {
+            return "This Mac has no such IP address. Check the address under Network."
+        }
+        return detail
     }
 
     func stop() {

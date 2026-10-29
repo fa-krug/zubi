@@ -13,7 +13,7 @@ body:
         - Calendar
         - Notes
         - API / server
-        - Setup window or menu bar
+        - Settings window or menu bar
         - Updates
         - Something new
     validations:

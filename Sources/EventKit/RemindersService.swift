@@ -24,8 +24,12 @@ actor RemindersService {
 
     func lists() -> [ReminderListDTO] {
         store.calendars(for: .reminder)
-            .map { ReminderListDTO(id: $0.calendarIdentifier, title: $0.title) }
-            .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+            .map {
+                ReminderListDTO(
+                    id: $0.calendarIdentifier, title: $0.title, account: $0.source?.title ?? "",
+                    color: ColorHex.string($0.cgColor))
+            }
+            .sorted { ($0.account, $0.title.lowercased()) < ($1.account, $1.title.lowercased()) }
     }
 
     func reminders(in listIDs: Set<String>, filter: ReminderFilter, includeCompleted: Bool) async -> [ReminderDTO] {

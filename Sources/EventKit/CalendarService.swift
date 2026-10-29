@@ -17,7 +17,11 @@ actor CalendarService {
 
     func calendars() -> [CalendarDTO] {
         store.calendars(for: .event)
-            .map { CalendarDTO(id: $0.calendarIdentifier, title: $0.title, account: $0.source?.title ?? "") }
+            .map {
+                CalendarDTO(
+                    id: $0.calendarIdentifier, title: $0.title, account: $0.source?.title ?? "",
+                    color: ColorHex.string($0.cgColor))
+            }
             .sorted { ($0.account, $0.title) < ($1.account, $1.title) }
     }
 

@@ -23,11 +23,29 @@ enum DateFormat {
     }
 }
 
+// MARK: Colours
+
+enum ColorHex {
+    /// `#RRGGBB` in sRGB, the colour the list or calendar has in Reminders and Calendar.
+    static func string(_ color: CGColor?) -> String? {
+        guard let color,
+              let srgb = CGColorSpace(name: CGColorSpace.sRGB),
+              let converted = color.converted(to: srgb, intent: .defaultIntent, options: nil),
+              let parts = converted.components, parts.count >= 3
+        else { return nil }
+        let bytes = parts.prefix(3).map { Int((min(max($0, 0), 1) * 255).rounded()) }
+        return String(format: "#%02X%02X%02X", bytes[0], bytes[1], bytes[2])
+    }
+}
+
 // MARK: Reminders
 
 struct ReminderListDTO: Codable, Sendable, Identifiable {
     let id: String
     let title: String
+    let account: String
+    /// `#RRGGBB`, as Reminders shows the list.
+    let color: String?
 }
 
 struct ReminderDTO: Codable, Sendable {
@@ -74,6 +92,8 @@ struct CalendarDTO: Codable, Sendable, Identifiable {
     let id: String
     let title: String
     let account: String
+    /// `#RRGGBB`, as Calendar shows it.
+    let color: String?
 }
 
 struct EventDTO: Codable, Sendable {
@@ -117,6 +137,8 @@ struct NoteFolderDTO: Codable, Sendable, Identifiable {
     let id: String
     let name: String
     let account: String
+    /// The enclosing folder; nil for a folder at the top of its account.
+    let parentID: String?
 }
 
 struct NoteSummaryDTO: Codable, Sendable {

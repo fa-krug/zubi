@@ -25,12 +25,13 @@ From then on Zubi updates itself from the same releases, with no further steps.
 
 ## First run
 
-1. Menu bar icon, then **Setup…**
-2. **Access:** grant Reminders and Calendar, and connect Notes (Automation prompt)
-3. Tick what the API may expose. Nothing is exposed by default
-4. Choose bind address and port, then **Apply and restart server**
-5. Copy the API key or the ready-made curl command
-6. Optionally enable **Launch at login**
+1. Menu bar icon, then **Settings…**
+2. Under **Reminders**, **Calendars** and **Notes**, grant access, then tick what the API may expose.
+   Nothing is exposed by default. Calendars and lists show their own colours; Notes folders are
+   indented under their parent folder
+3. Under **Server**, choose the bind address and port, then **Apply and Restart**
+4. Under **API Key**, copy the key or the ready-made curl command
+5. Optionally, under **General**, enable **Launch at login**
 
 The server listens on `127.0.0.1:8787` until you change it. "Localhost only" pairs with an SSH tunnel;
 "Specific IP" suits a Tailscale address; "All interfaces" puts the API on every network the Mac is on.
@@ -42,11 +43,11 @@ All `/api` routes need `Authorization: Bearer <api-key>`. Hidden items return 40
 | Method | Path | Notes |
 |---|---|---|
 | GET | `/health` | No auth |
-| GET | `/api/lists` | Exposed reminder lists |
+| GET | `/api/lists` | Exposed reminder lists, with `account` and `color` (`#RRGGBB`) |
 | GET | `/api/reminders` | `list`, `due=today\|overdue`, `completed=true` |
-| GET | `/api/calendars` | Exposed calendars |
+| GET | `/api/calendars` | Exposed calendars, with `account` and `color` (`#RRGGBB`) |
 | GET | `/api/events` | `from`, `to` (YYYY-MM-DD, inclusive, default next 7 days), `calendar` |
-| GET | `/api/notes/folders` | Exposed Notes folders |
+| GET | `/api/notes/folders` | Exposed Notes folders, with `parentID` (null at the top of an account) |
 | GET | `/api/notes` | Metadata, newest first. `folder`, `limit` (default 50, max 500) |
 | GET | `/api/note?id=...` | Full note as `plaintext` and `html` |
 
@@ -84,7 +85,7 @@ curl -G -H "Authorization: Bearer <key>" --data-urlencode "id=x-coredata://..." 
 
 Zubi checks this repo's GitHub Releases once a day, shows the release notes when there is something
 new, and installs and relaunches when you say so. **Later** skips that version; a newer one still
-asks. Turn the daily check off under **Setup… → 8. Updates**. **Check for Updates…** there and in the
+asks. Turn the daily check off under **Settings… › General**. **Check for Updates…** there and in the
 menu bar popover works either way. Details: [docs/features/updates.md](docs/features/updates.md).
 
 ## Development

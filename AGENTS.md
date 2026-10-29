@@ -9,7 +9,8 @@ for the HTTP server. Not sandboxed. The API is documented in [README.md](README.
 
 | Folder | Holds |
 | --- | --- |
-| `Sources/App/` | `@main` (`ZubiApp`), `BridgeController` (owns the server, access state and settings), the menu bar popover and Setup window, the Keychain-backed API key, `AppPaths` |
+| `Sources/Settings/` | The Settings window: a sidebar of `SettingsTab`s (General, Server, API Key, Reminders, Calendars, Notes) and one `Form` pane each under `Panes/` |
+| `Sources/App/` | `@main` (`ZubiApp`), `BridgeController` (owns the server, access state and settings), the menu bar popover, the Keychain-backed API key, `AppPaths` |
 | `Sources/Server/` | the Hummingbird server, bearer-key middleware, and one routes file per source |
 | `Sources/EventKit/` | `RemindersService` and `CalendarService`, actors over their own `EKEventStore` |
 | `Sources/Notes/` | `NotesService` and `JXARunner`: Notes read through `osascript` JavaScript for Automation |
@@ -48,7 +49,7 @@ Full local loop: [development.md](docs/development.md).
   their own prefs, caches, login item and TCC grants, and never update themselves. Anything newly
   persisted stays keyed by `Bundle.main.bundleIdentifier` (`AppPaths.caches()` for files).
 - **Nothing is exposed by default.** The API serves only the lists, calendars and folders ticked in
-  Setup, checked on every request; anything else returns 404. Every `/api` route sits behind the
+  Settings, checked on every request; anything else returns 404. Every `/api` route sits behind the
   bearer-key middleware; only `/health` does not. The default bind is `127.0.0.1`.
 - **A protected resource needs its usage string *and* its entitlement.** Under the hardened runtime
   (Release only) a missing entitlement denies silently with no prompt. Today that is

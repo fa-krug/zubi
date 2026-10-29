@@ -7,21 +7,27 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		081FA5487A087A8CAB455482 /* CalendarsPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = D84AC6ABED1BC20A529DB293 /* CalendarsPane.swift */; };
+		0AD4604702EE381339CD9637 /* ServerPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAE73B73281D5BC2F400A19C /* ServerPane.swift */; };
 		134025CCB2879F0934005798 /* AppPaths.swift in Sources */ = {isa = PBXBuildFile; fileRef = 800180FFE5F5F936A87D7716 /* AppPaths.swift */; };
+		1FA86DC65F567639188DE2E6 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C74303AF4CEF7EF83B0D9B17 /* SettingsView.swift */; };
 		21518F6BF67A5456C1B7F414 /* Hummingbird in Frameworks */ = {isa = PBXBuildFile; productRef = 8F5FE37E89D03FC216A9810C /* Hummingbird */; };
 		245EC035A3EEC487AF60BEE7 /* BundleSignature.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4ADB21BBE15EB3696CD4B9D /* BundleSignature.swift */; };
 		2B192FE8C0D0D2C100C4EE76 /* Settings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 140FEB25ACAD95C1FEB63B90 /* Settings.swift */; };
 		2FB8620B1F87109CC6AB53BD /* CalendarRoutes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 318329B5074D84C887A18E4E /* CalendarRoutes.swift */; };
 		45F66FC6E96DA68AAB44B01E /* RemindersService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C629C0F7E65390FE510E9545 /* RemindersService.swift */; };
 		53FEE15EEBB400C8769E025B /* DTOs.swift in Sources */ = {isa = PBXBuildFile; fileRef = F46101A650E4C1DD206370C6 /* DTOs.swift */; };
+		5CC6348C0A6CF0AB8A035F2E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5461C7468C457777B9988E67 /* Assets.xcassets */; };
 		61D744DB1F3CF326224521F0 /* APIKeyMiddleware.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81706F5A48B4CAF6993351FA /* APIKeyMiddleware.swift */; };
 		689D2E33EE0C4B8AAFEBCE27 /* ReleaseArchitecture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3251A20100E0F193FA2AB37C /* ReleaseArchitecture.swift */; };
+		74350EA6CC2C90BA79573DE7 /* SettingsComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECE21A5B0B5D7B22896F3D8F /* SettingsComponents.swift */; };
 		746BDC5E7514571E4B5B4870 /* UpdateCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E86D672D332E4D930A7CCB7 /* UpdateCoordinator.swift */; };
 		75314E3D80328C17747F3366 /* BridgeServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 493E9941CE15F8432BFDAA7B /* BridgeServer.swift */; };
 		7C01E60BFC4C7D55FD7BC9D9 /* MenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 62F4DCDB96209482B1F84833 /* MenuView.swift */; };
 		7D6182AE30AE2FB2DF77086A /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C0C8607EAEC7B86CB31D42D /* Theme.swift */; };
 		7EECF8BEF93D5E04663F9D3A /* APIKeyStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3DB027C14B18870E88174C13 /* APIKeyStore.swift */; };
 		81A0F2EDC0F8349B5EA49645 /* UpdateDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 300B3EB9DC65590889AC44C4 /* UpdateDownloader.swift */; };
+		8A64DC8056572722AF0FFE3F /* APIKeyPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACAB99979C1D8290F4D2A0BF /* APIKeyPane.swift */; };
 		9416179F54A99BA1EA68DFF1 /* JXARunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A15DDF99A2FFBFABE970094 /* JXARunner.swift */; };
 		988E187F400E418ADCC36F53 /* AppVersion.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA315FB4331EE502434EEDBC /* AppVersion.swift */; };
 		99D9C46D3F900F73744CBB45 /* UpdateCheckStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34641CADCA450BBF8D06CD9E /* UpdateCheckStore.swift */; };
@@ -29,14 +35,17 @@
 		A7D4E3B583BCE89BBD415969 /* NotesRoutes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91875B766EA4E9521D8D2E2C /* NotesRoutes.swift */; };
 		A862E7EB7AE461F022106D42 /* RelaunchRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 492204B01CDB41486B18DD3E /* RelaunchRunner.swift */; };
 		AC60962C9BBEFA61D3A560FB /* ReleaseChannel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00974E355FA9C9510C6B5488 /* ReleaseChannel.swift */; };
+		AD32EF8E275D09552D41FF77 /* NotesPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACB3C18C085A10DCDEEFA2B4 /* NotesPane.swift */; };
 		B4815AA3B7AF9B0E5318E0F4 /* ZubiApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88CC0ACF654D78066A392188 /* ZubiApp.swift */; };
 		B832F05A4334F4C3B36FD6CC /* UpdateInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16081AAF2692D751C5CD76E2 /* UpdateInstaller.swift */; };
 		BB4A7A50255336123974EB7C /* CalendarService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2BC4275FA6BB608064FD635 /* CalendarService.swift */; };
 		BF8C73DF486B8DEBBD0FD361 /* UpdateWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2EDA0060DEA111CEBA7613E /* UpdateWindowController.swift */; };
-		C28F13354728298ABCCDE1AD /* SetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A289ACC0789DF97F117364FA /* SetupView.swift */; };
 		C5FAA8E5199C9A551D64AD39 /* UpdateWindowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 075A8F761BF7B92ED4B3E1EF /* UpdateWindowView.swift */; };
+		CBF9779F5897066D7163ED53 /* RemindersPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F58036AE100202AC26871A3 /* RemindersPane.swift */; };
+		D095079CF70116EFBAC9880D /* GeneralPane.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2A6E3F0FB9322E3F15C1120 /* GeneralPane.swift */; };
 		D7A67D65393BBA86D0BA5D3D /* NotesService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D9C6514A8CE262E27CCA453 /* NotesService.swift */; };
 		D81E7BE5E540A791E0EA9268 /* UpdateFailure.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAE9FCE60A992178AE8CB908 /* UpdateFailure.swift */; };
+		E143C60366B7FB859D6FB84F /* SettingsTab.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E76E1F8CC486CDBDDDD4EEE /* SettingsTab.swift */; };
 		EF787115828F34D3609DBDB2 /* zubi.icon in Resources */ = {isa = PBXBuildFile; fileRef = 3513D6D7E95C0CAB59AAA010 /* zubi.icon */; };
 		F14B8F92CC06618BC64F3831 /* ReminderRoutes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2541EF5CF8C2516555AB5219 /* ReminderRoutes.swift */; };
 		F26002AE759DD77A5880F08A /* ReleaseNotes.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9777031F6B77249420B68EA /* ReleaseNotes.swift */; };
@@ -64,23 +73,32 @@
 		461C01F082420C5641C9D0B8 /* Zubi.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Zubi.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		492204B01CDB41486B18DD3E /* RelaunchRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelaunchRunner.swift; sourceTree = "<group>"; };
 		493E9941CE15F8432BFDAA7B /* BridgeServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeServer.swift; sourceTree = "<group>"; };
+		5461C7468C457777B9988E67 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		571C46733BBF09601A3C929F /* BridgeController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeController.swift; sourceTree = "<group>"; };
 		5C0C8607EAEC7B86CB31D42D /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		5F58036AE100202AC26871A3 /* RemindersPane.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemindersPane.swift; sourceTree = "<group>"; };
 		62F4DCDB96209482B1F84833 /* MenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuView.swift; sourceTree = "<group>"; };
+		6E76E1F8CC486CDBDDDD4EEE /* SettingsTab.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsTab.swift; sourceTree = "<group>"; };
 		72FD53999F3B46201925A863 /* ReleaseFeed.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReleaseFeed.swift; sourceTree = "<group>"; };
 		800180FFE5F5F936A87D7716 /* AppPaths.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPaths.swift; sourceTree = "<group>"; };
 		81706F5A48B4CAF6993351FA /* APIKeyMiddleware.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIKeyMiddleware.swift; sourceTree = "<group>"; };
 		88CC0ACF654D78066A392188 /* ZubiApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZubiApp.swift; sourceTree = "<group>"; };
 		91875B766EA4E9521D8D2E2C /* NotesRoutes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesRoutes.swift; sourceTree = "<group>"; };
-		A289ACC0789DF97F117364FA /* SetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupView.swift; sourceTree = "<group>"; };
 		A3727E7C4B3EA6A99AD46901 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		ACAB99979C1D8290F4D2A0BF /* APIKeyPane.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIKeyPane.swift; sourceTree = "<group>"; };
+		ACB3C18C085A10DCDEEFA2B4 /* NotesPane.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesPane.swift; sourceTree = "<group>"; };
 		B4ADB21BBE15EB3696CD4B9D /* BundleSignature.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundleSignature.swift; sourceTree = "<group>"; };
+		BAE73B73281D5BC2F400A19C /* ServerPane.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerPane.swift; sourceTree = "<group>"; };
 		C629C0F7E65390FE510E9545 /* RemindersService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemindersService.swift; sourceTree = "<group>"; };
 		C65212C6418686C72F38AECF /* ReleaseNotesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReleaseNotesView.swift; sourceTree = "<group>"; };
+		C74303AF4CEF7EF83B0D9B17 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		CAE9FCE60A992178AE8CB908 /* UpdateFailure.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateFailure.swift; sourceTree = "<group>"; };
+		D2A6E3F0FB9322E3F15C1120 /* GeneralPane.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneralPane.swift; sourceTree = "<group>"; };
 		D2BC4275FA6BB608064FD635 /* CalendarService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarService.swift; sourceTree = "<group>"; };
+		D84AC6ABED1BC20A529DB293 /* CalendarsPane.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarsPane.swift; sourceTree = "<group>"; };
 		DA315FB4331EE502434EEDBC /* AppVersion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppVersion.swift; sourceTree = "<group>"; };
 		E2EDA0060DEA111CEBA7613E /* UpdateWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateWindowController.swift; sourceTree = "<group>"; };
+		ECE21A5B0B5D7B22896F3D8F /* SettingsComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsComponents.swift; sourceTree = "<group>"; };
 		F46101A650E4C1DD206370C6 /* DTOs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DTOs.swift; sourceTree = "<group>"; };
 		F9777031F6B77249420B68EA /* ReleaseNotes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReleaseNotes.swift; sourceTree = "<group>"; };
 		FB16C19832B0A62744503053 /* Quarantine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Quarantine.swift; sourceTree = "<group>"; };
@@ -124,6 +142,30 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
+		18AA632373AB69A5F8B8F68E /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				312B58307024CF584B407F6E /* Panes */,
+				ECE21A5B0B5D7B22896F3D8F /* SettingsComponents.swift */,
+				6E76E1F8CC486CDBDDDD4EEE /* SettingsTab.swift */,
+				C74303AF4CEF7EF83B0D9B17 /* SettingsView.swift */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
+		312B58307024CF584B407F6E /* Panes */ = {
+			isa = PBXGroup;
+			children = (
+				ACAB99979C1D8290F4D2A0BF /* APIKeyPane.swift */,
+				D84AC6ABED1BC20A529DB293 /* CalendarsPane.swift */,
+				D2A6E3F0FB9322E3F15C1120 /* GeneralPane.swift */,
+				ACB3C18C085A10DCDEEFA2B4 /* NotesPane.swift */,
+				5F58036AE100202AC26871A3 /* RemindersPane.swift */,
+				BAE73B73281D5BC2F400A19C /* ServerPane.swift */,
+			);
+			path = Panes;
+			sourceTree = "<group>";
+		};
 		341B97303346B4DB37DE17D1 /* App */ = {
 			isa = PBXGroup;
 			children = (
@@ -132,7 +174,6 @@
 				571C46733BBF09601A3C929F /* BridgeController.swift */,
 				62F4DCDB96209482B1F84833 /* MenuView.swift */,
 				140FEB25ACAD95C1FEB63B90 /* Settings.swift */,
-				A289ACC0789DF97F117364FA /* SetupView.swift */,
 				5C0C8607EAEC7B86CB31D42D /* Theme.swift */,
 				88CC0ACF654D78066A392188 /* ZubiApp.swift */,
 			);
@@ -159,7 +200,9 @@
 				53FA300FBAA5DC9F1F12657B /* Models */,
 				02BDD22BE9810520DD9ECE97 /* Notes */,
 				E5893415CCDD8856AA95752F /* Server */,
+				18AA632373AB69A5F8B8F68E /* Settings */,
 				C44B27EBCCB91FF7D4A6CA1E /* Updates */,
+				5461C7468C457777B9988E67 /* Assets.xcassets */,
 				A3727E7C4B3EA6A99AD46901 /* Info.plist */,
 				24D791DB7EE77057147D6E3C /* Zubi.entitlements */,
 				3513D6D7E95C0CAB59AAA010 /* zubi.icon */,
@@ -295,6 +338,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5CC6348C0A6CF0AB8A035F2E /* Assets.xcassets in Resources */,
 				EF787115828F34D3609DBDB2 /* zubi.icon in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -307,6 +351,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				61D744DB1F3CF326224521F0 /* APIKeyMiddleware.swift in Sources */,
+				8A64DC8056572722AF0FFE3F /* APIKeyPane.swift in Sources */,
 				7EECF8BEF93D5E04663F9D3A /* APIKeyStore.swift in Sources */,
 				134025CCB2879F0934005798 /* AppPaths.swift in Sources */,
 				988E187F400E418ADCC36F53 /* AppVersion.swift in Sources */,
@@ -315,9 +360,12 @@
 				245EC035A3EEC487AF60BEE7 /* BundleSignature.swift in Sources */,
 				2FB8620B1F87109CC6AB53BD /* CalendarRoutes.swift in Sources */,
 				BB4A7A50255336123974EB7C /* CalendarService.swift in Sources */,
+				081FA5487A087A8CAB455482 /* CalendarsPane.swift in Sources */,
 				53FEE15EEBB400C8769E025B /* DTOs.swift in Sources */,
+				D095079CF70116EFBAC9880D /* GeneralPane.swift in Sources */,
 				9416179F54A99BA1EA68DFF1 /* JXARunner.swift in Sources */,
 				7C01E60BFC4C7D55FD7BC9D9 /* MenuView.swift in Sources */,
+				AD32EF8E275D09552D41FF77 /* NotesPane.swift in Sources */,
 				A7D4E3B583BCE89BBD415969 /* NotesRoutes.swift in Sources */,
 				D7A67D65393BBA86D0BA5D3D /* NotesService.swift in Sources */,
 				F66D49067DC10C1F8759A98C /* Quarantine.swift in Sources */,
@@ -328,9 +376,13 @@
 				F26002AE759DD77A5880F08A /* ReleaseNotes.swift in Sources */,
 				FB9B1A3AFE87C51BA7288FE6 /* ReleaseNotesView.swift in Sources */,
 				F14B8F92CC06618BC64F3831 /* ReminderRoutes.swift in Sources */,
+				CBF9779F5897066D7163ED53 /* RemindersPane.swift in Sources */,
 				45F66FC6E96DA68AAB44B01E /* RemindersService.swift in Sources */,
+				0AD4604702EE381339CD9637 /* ServerPane.swift in Sources */,
 				2B192FE8C0D0D2C100C4EE76 /* Settings.swift in Sources */,
-				C28F13354728298ABCCDE1AD /* SetupView.swift in Sources */,
+				74350EA6CC2C90BA79573DE7 /* SettingsComponents.swift in Sources */,
+				E143C60366B7FB859D6FB84F /* SettingsTab.swift in Sources */,
+				1FA86DC65F567639188DE2E6 /* SettingsView.swift in Sources */,
 				7D6182AE30AE2FB2DF77086A /* Theme.swift in Sources */,
 				99D9C46D3F900F73744CBB45 /* UpdateCheckStore.swift in Sources */,
 				746BDC5E7514571E4B5B4870 /* UpdateCoordinator.swift in Sources */,

@@ -14,5 +14,5 @@ Closes #
 ## Tests & validation
 
 <!-- The build you ran (Debug, no new warnings) and what you exercised by hand: the requests you sent,
-     with and without the key and against a hidden item, and any Setup flow you walked through.
+     with and without the key and against a hidden item, and any Settings flow you walked through.
      Visual change → before/after screenshots or a short recording. -->

@@ -27,15 +27,34 @@ actor NotesService {
 /// Bulk property reads (folders.id(), notes.name(), ...) cost one Apple Event each
 /// instead of one per item, which keeps large folders fast.
 private enum Scripts {
+    /// Depth first, so every folder follows its parent. `account.folders` may or may not list nested
+    /// folders itself, so children are read from each folder and a folder is only emitted once.
     static let folders = """
     function run(argv) {
       const Notes = Application('Notes');
       const out = [];
+      const seen = {};
       Notes.accounts().forEach(account => {
         const accountName = account.name();
         const ids = account.folders.id();
         const names = account.folders.name();
-        ids.forEach((id, i) => out.push({ id: id, name: names[i], account: accountName }));
+        const nameOf = {};
+        const children = {};
+        const nested = {};
+        ids.forEach((id, i) => {
+          nameOf[id] = names[i];
+          children[id] = Notes.folders.byId(id).folders.id();
+          children[id].forEach(child => { nested[child] = true; });
+        });
+        function walk(id, parentID) {
+          if (seen[id]) return;
+          seen[id] = true;
+          const folder = Notes.folders.byId(id);
+          const name = nameOf[id] !== undefined ? nameOf[id] : folder.name();
+          out.push({ id: id, name: name, account: accountName, parentID: parentID });
+          (children[id] || folder.folders.id()).forEach(child => walk(child, id));
+        }
+        ids.filter(id => !nested[id]).forEach(id => walk(id, null));
       });
       return JSON.stringify(out);
     }
