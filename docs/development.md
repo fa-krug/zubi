@@ -46,8 +46,8 @@ exposure come in as closures (`SourceAccess`, `ExposedIDs`) that are asked on ev
 conforms its `RemindersService`, `CalendarService` and `NotesService` to those protocols, and
 `BridgeController` wires them up.
 
-**`openapi.json` is the contract.** It is served at `/openapi.json`, shown at `/docs`, and the
-package's tests hold the server to it:
+**`openapi.json` is the contract** between the app and the `zubi` client, inside the sessions the
+relay carries. The package's tests hold the server to it:
 
 ```sh
 cd Packages/ZubiAPI && swift test
@@ -99,7 +99,7 @@ plugin from stopping the release.
 Debug builds are a separate app: **`Zubi Dev.app`**, bundle id `de.fa-krug.zubi.dev`. Everything
 persisted is keyed by bundle id:
 
-- `~/Library/Preferences/<id>.plist`: what is exposed, bind address, port, and the update setting.
+- `~/Library/Preferences/<id>.plist`: what is exposed, your own relay if set, and the update setting.
 - `~/Library/Caches/<id>/`: the update check and staged downloads.
 - The `SMAppService` login item.
 - The TCC grants: Reminders, Calendar and Automation (Notes).
@@ -107,7 +107,8 @@ persisted is keyed by bundle id:
 So a local build can neither read nor clobber an installed copy's state, and both run side by side.
 Two consequences:
 
-- Don't run both on the same port. Whichever starts second fails to bind.
+- The dev build's server listens on port 8797, the installed one's on 8787, so both run at once.
+  Each has its own room on the relay, and its own clients.
 - The dev build never updates itself. **Check for Updates…** says it is a local build instead.
 
 That includes the keys: they live in one login-keychain item whose service is the bundle id (account

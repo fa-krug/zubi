@@ -87,7 +87,7 @@ end
         "license": "MIT",
         "architecture": architectures,
         "bin": "zubi.exe",
-        "notes": "Configure it with: zubi config set url http://<your-mac>:8787 and zubi config set key -",
+        "notes": "Run zubi to pair it with your Mac, using a code from Zubi > Settings > Clients.",
     }
     pathlib.Path(manifest_out).write_text(json.dumps(manifest, indent=2) + "\n")
     print(f"wrote {formula_out} and {manifest_out} for {version}")

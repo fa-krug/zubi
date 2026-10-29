@@ -108,8 +108,13 @@ final class BridgeController: ObservableObject {
         status == .denied || status == .restricted
     }
 
-    /// Zubi's server answers on this Mac only; clients reach it through the relay.
+    /// Zubi's server answers on this Mac only; clients reach it through the relay. Zubi Dev takes
+    /// another port, so it runs beside an installed Zubi.
+    #if DEBUG
+    static let serverConfig = ServerConfig(host: "127.0.0.1", port: 8797)
+    #else
     static let serverConfig = ServerConfig(host: "127.0.0.1", port: 8787)
+    #endif
 
     init() {
         let defaults = UserDefaults.standard

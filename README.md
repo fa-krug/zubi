@@ -11,139 +11,107 @@
 </p>
 
 Zubi is a free menu bar app for your Mac. It shares the Reminders lists, calendars and Notes folders
-you choose over a small, password-protected web interface (an HTTP API), so your other devices can
-read them, and, where you allow it, add and edit reminders, events and notes: a Raspberry Pi display,
-Home Assistant, a Linux or Windows computer, a script, or an AI agent.
+you choose with your other devices, from anywhere: a Raspberry Pi display, a Linux or Windows
+computer, a script, or an AI assistant. They read them and, where you allow it, add and edit
+reminders, events and notes.
 
-Apple keeps this data on your Mac and in iCloud, with nothing a non-Apple device can ask. Zubi runs
-where the data already is and hands out exactly what you allow, item by item. There is no account and no Zubi
-server: your data goes from your Mac straight to your own devices.
+There are three parts, and you install two of them: **Zubi** on your Mac, the **`zubi`** client on each
+device, and a **relay** in between that is already running. Each device's connection is encrypted end
+to end with its own pairing code, so the relay passes along only what it can't read. There is no
+account, and nothing on your Mac accepts connections from the internet.
 
 **Documentation: <https://zubi.fa-krug.de/>**
 
 ## What you can do with it
 
 - **Put your day on a screen.** A Raspberry Pi by the front door shows today's events and the
-  shopping list, and updates the moment something changes.
-- **Automate your home.** Home Assistant or Node-RED reacts when a reminder is overdue.
+  shopping list, and updates the moment something changes (`zubi watch`).
 - **Let an AI assistant manage your week.** Claude Desktop, Claude Code or any MCP-capable assistant
   can search your calendar, reminders and notes and, where you allow it, add events and tick off
-  reminders, through the `zubi` command.
-- **Subscribe from any calendar app.** Thunderbird, GNOME Calendar or a wall display can subscribe to a
-  shared calendar by link.
+  reminders (`zubi mcp`).
 - **Script it.** A morning summary by email, a reminder count in your shell prompt, a plain-text copy
-  of a Notes folder.
+  of a Notes folder, with exact JSON from `--json`.
 - **Reach it from Linux and Windows.** Your Apple calendars and reminders on computers Apple doesn't
   make apps for.
 
-## Install
+## On your Mac
 
-You need a Mac with macOS 14 Sonoma or later.
+You need macOS 14 Sonoma or later.
 
 1. Download the latest `Zubi-Universal-<version>.zip` from
-   [Releases](https://github.com/fa-krug/zubi/releases/latest).
-2. Unzip it and move **Zubi** to your Applications folder.
-3. Open it. macOS asks once whether to open an app from the internet; Zubi is signed and notarized
-   by Apple, so confirm. Its bridge icon appears in the menu bar.
+   [Releases](https://github.com/fa-krug/zubi/releases/latest), unzip it, move **Zubi** to your
+   Applications folder and open it. It's signed and notarized by Apple; confirm once that it may open.
+2. Settings opens on **Connection**: Zubi connects to the relay on its own and turns green, and the
+   **pairing code** for your first device is right there.
+3. **Choose what to share.** Under **Reminders**, **Calendars** and **Notes**, click **Grant Access**,
+   then set each list, calendar and folder to **Read**, or to **Read & Write** if your devices may also
+   add and edit items there. Everything starts **Off**.
 
-Zubi keeps itself up to date: once a day it checks for a new version, shows what changed, and installs
-it when you say so.
+That's it. Zubi starts with your Mac and keeps running in the menu bar, and keeps itself up to date.
+The Mac has to be awake and logged in to answer.
 
-## Get started
+## On each device
 
-Three steps, about three minutes:
-
-1. **Choose what to share.** Click the menu bar icon, then **Settings…**. Under **Reminders**,
-   **Calendars** and **Notes**, click **Grant Access**, then set each list, calendar and folder to
-   **Read**, or to **Read & Write** if other devices may also add and edit items there. Everything
-   starts **Off**: nothing is shared until you choose.
-2. **Copy the key.** Under **Keys**, click **Copy Command**. Later, give each device its own key
-   there, either **Read** or **Read & Write**.
-3. **Try it.** Paste the command into Terminal. Your shared events come back as JSON:
-
-   ```bash
-   curl -H "Authorization: Bearer <key>" http://127.0.0.1:8787/api/events
-   ```
-
-To keep Zubi running after a restart, switch on **Launch at login** under **Settings › General**.
-
-## Use it from another device
-
-At first Zubi only answers on your Mac, so nothing on your network can reach it by accident. To read it
-from another device, either:
-
-- **Go through a relay**, from any network. Zubi connects out to a relay you run with `zubi relay`
-  (on a Raspberry Pi at home or a free hosting service), and each device's session is encrypted end
-  to end with its key, so the relay can't read anything. Turn it on under **Settings › Server ›
-  Relay**, copy a **pairing code** from the device's key under **Settings › Keys**, and run
-  `zubi pair` with it on the device.
-- **Tunnel to it**. Turn on Remote Login on the Mac, then on the other device run
-  `ssh -N -L 8787:localhost:8787 you@mac.local`. Zubi is now at `http://127.0.0.1:8787` there too.
-- **Use a private network** such as Tailscale. Under **Settings › Server**, choose **Specific IP**,
-  enter the Mac's Tailscale address, and click **Apply and Restart**.
-
-The Mac has to be awake, logged in and running Zubi to answer.
-[Reaching Zubi from other devices](https://zubi.fa-krug.de/docs.html#network) covers every
-option.
-
-## The `zubi` command
-
-`zubi` is a small command-line client for macOS, Linux (including a Raspberry Pi) and Windows. It shows,
-searches, adds and edits your reminders, events and notes in a terminal, gives scripts and AI agents
-exact JSON with `--json`, prints a line whenever something changes (`zubi watch`), and serves
-Zubi to AI assistants such as Claude Desktop (`zubi mcp`).
-
-```bash
-zubi config discover --save        # or: zubi config set url http://127.0.0.1:8787
-zubi config set key -              # paste a key from Settings › Keys
-zubi events --from 2026-11-02 --to 2026-11-06
-zubi reminders add "Buy milk" --list Groceries --due 2026-11-02
-zubi reminders --due overdue --json
-```
-
-On Linux, a Raspberry Pi or a Mac, install it with one line:
+Install the client on Linux, a Raspberry Pi or macOS with one line:
 
 ```bash
 curl -fsSL https://zubi.fa-krug.de/install.sh | sh
 ```
 
-Or with Homebrew on macOS and Linux, or Scoop on Windows:
+(or `brew install fa-krug/tap/zubi`; on Windows, Scoop: see [cli/README.md](cli/README.md#install)).
+Then run it:
 
 ```bash
-brew install fa-krug/tap/zubi
+zubi
 ```
 
-```powershell
-scoop bucket add fa-krug https://github.com/fa-krug/scoop-bucket
-scoop install fa-krug/zubi
+The first time, it asks for a pairing code: copy one from **Zubi › Settings › Connection** (or a
+separate one per device under **Settings › Clients**) and paste it. On Linux it also sets up the
+`zubi-client` service, which keeps the connection. After that, `zubi` shows the connection's status:
+
+```text
+✓ Paired as "Kitchen Pi", through wss://relay.fa-krug.de
+✓ The zubi-client service keeps the connection
+✓ Your Mac answers
 ```
 
-Or download it from the [CLI releases](https://github.com/fa-krug/zubi/releases?q=cli&expanded=true)
-(tagged `cli/v…`). [cli/README.md](cli/README.md) has every install option, command and exit code.
+Then:
+
+```bash
+zubi events --from 2026-11-02 --to 2026-11-06
+zubi reminders add "Buy milk" --list Groceries --due 2026-11-02
+zubi reminders --due overdue --json
+zubi watch
+```
+
+[cli/README.md](cli/README.md) lists every command, flag and exit code.
+
+## Your own relay
+
+Zubi uses `wss://relay.fa-krug.de` unless you choose otherwise. To run your own, on a Raspberry Pi,
+a server or a free hosting service, run `zubi relay` there, then turn on **Use my own relay** under
+**Settings › Connection** and pair your devices again. [Running your own
+relay](https://zubi.fa-krug.de/docs.html#own-relay) shows how.
 
 ## Privacy and security
 
 - You decide per list, calendar and folder: **Off**, **Read**, or **Read & Write**. Anything Off
-  answers as if it didn't exist; anything set to Read can't be changed through Zubi.
-- Every device gets its own key, kept in your Mac's Keychain: **Read**, or **Read & Write**. A Read
-  key can never change anything, and you can revoke one device without touching the others.
-- **Settings › Activity** lists everything created or edited through Zubi, and by which key.
-- Zubi listens only on your Mac until you change that. It only adds and edits where you chose Read &
-  Write, and it never deletes anything.
-- Zubi doesn't encrypt traffic itself. Beyond your Mac, use an SSH tunnel or an encrypted network such
-  as Tailscale.
-- No analytics, no tracking. The only outside service Zubi contacts is GitHub, once a day, to check for
-  updates; you can switch that off.
+  answers as if it didn't exist; anything set to Read can't be changed through Zubi. Zubi never
+  deletes anything.
+- Every device gets its own pairing code, kept in your Mac's Keychain. Remove one under **Settings ›
+  Clients** and that device is shut out, without touching the others.
+- Each device's connection is encrypted end to end between it and your Mac. The relay sees which
+  addresses connect and how much they send, never what.
+- **Settings › Activity** lists everything created or edited through Zubi, and by which device.
+- No analytics, no tracking.
 
 The [privacy policy](https://zubi.fa-krug.de/privacy.html) lists every connection Zubi makes.
 
 ## Documentation
 
-- [Documentation](https://zubi.fa-krug.de/docs.html): the app, every setting, what each source
-  returns, other devices, updates and troubleshooting.
-- [API reference](https://zubi.fa-krug.de/api.html): every endpoint, parameter and field. On your
-  Mac, **Open API Docs** in **Settings › Keys** opens the same API in a page where you can try each call.
-- [Command-line client](cli/README.md): install, configure, commands, and use from agents.
+- [Documentation](https://zubi.fa-krug.de/docs.html): the app, every setting, the client, your own
+  relay, updates and troubleshooting.
+- [Command-line client](cli/README.md): install, commands, use from agents, and the relay.
 
 ## Help and feedback
 

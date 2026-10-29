@@ -88,7 +88,7 @@ func TestSpecQueryParametersUsed(t *testing.T) {
 				used := slices.ContainsFunc(apiCommands, func(c apiCommand) bool {
 					return c.Method == method && c.Path == path && slices.Contains(c.Query, p.Name)
 				})
-				if !used && !slices.Contains([]string{"GET /openapi.json", "GET /docs"}, method+" "+path) {
+				if !used {
 					t.Errorf("spec drift: %s %s takes query parameter %q, which no command sends", method, path, p.Name)
 				}
 			}

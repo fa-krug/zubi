@@ -172,52 +172,6 @@ pre .dim {
   white-space: nowrap;
 }
 
-/* A choice shown as tabs; assets/tabs.js turns [data-tabs] into them. */
-.tab-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 16px;
-}
-
-.tab {
-  padding: 7px 14px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--surface);
-  color: var(--ink-soft);
-  font: 600 14px/1.3 var(--sans);
-  cursor: pointer;
-}
-
-.tab:hover {
-  color: var(--ink);
-  border-color: var(--stone);
-}
-
-.tab[aria-selected="true"] {
-  border-color: var(--teal);
-  background: var(--teal-wash);
-  color: var(--teal-ink);
-}
-
-.tab:focus-visible {
-  outline: 2px solid var(--teal);
-  outline-offset: 2px;
-}
-
-[data-tabs] > [data-tab] {
-  margin-top: 14px;
-  padding: 4px 22px 20px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface);
-}
-
-.tabs-ready > [data-tab] > .tab-title {
-  display: none;
-}
-
 .wrap {
   width: min(var(--maxw), 100% - 40px);
   margin-inline: auto;
@@ -799,7 +753,7 @@ h3 {
   text-decoration: underline;
 }
 
-/* --- Long-form pages: docs, API, legal --- */
+/* --- Long-form pages: docs, legal --- */
 
 .page {
   display: grid;
@@ -991,52 +945,6 @@ h3 {
   .components {
     grid-template-columns: 1fr;
   }
-}
-
-/* API reference. */
-.op {
-  margin-top: 30px;
-  padding-top: 22px;
-  border-top: 1px solid var(--line);
-}
-
-.op-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 10px;
-}
-
-.verb {
-  font-family: var(--mono);
-  font-size: 13px;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 6px;
-  background: var(--teal-wash);
-  color: var(--teal-ink);
-}
-
-.op-path {
-  font-family: var(--mono);
-  font-size: 17px;
-  font-weight: 600;
-}
-
-.op-auth {
-  font-size: 13px;
-  color: var(--stone);
-}
-
-.schema td:first-child {
-  font-family: var(--mono);
-  font-size: 14px;
-  white-space: nowrap;
-}
-
-.optional {
-  color: var(--stone);
-  font-size: 13px;
 }
 
 /* --- Language toggle (legal pages) --- */

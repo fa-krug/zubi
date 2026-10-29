@@ -13,20 +13,22 @@
   and distribute it under the terms of that license. The third-party software it includes is listed,
   with its licenses, in the <a href="https://github.com/fa-krug/zubi/blob/main/NOTICE.md">notices</a>.</p>
 <h2>What you share and allow</h2>
-<p>Zubi serves the reminders, calendars and notes you choose to whoever holds your API key and can reach
-  your Mac, and lets them add and edit items wherever you chose Read &amp; Write. You decide what to share,
-  what may be changed, by which devices, and over which network. Changes made through Zubi are real
+<p>Zubi serves the reminders, calendars and notes you choose to every device you pair with it, and lets
+  them add and edit items wherever you chose Read &amp; Write. You decide what to share, what may be
+  changed, and which devices may connect. Changes made through Zubi are real
   changes to your data and sync like any other; Zubi never deletes anything, but it can overwrite a
   title, note or date where you allowed writing. Shared calendars and
   lists can contain other people’s information; you are responsible for sharing it only in ways you are
   entitled to and that respect applicable law.</p>
 <h2>Security of your setup</h2>
-<p>The API uses plain HTTP and a single key. Keep the key secret, and reach Zubi from other devices only
-  through an SSH tunnel or a network you trust, as the <a href="docs.html#network">documentation</a>
-  describes. Regenerate the key if you think it has been exposed.</p>
+<p>A pairing code lets whoever holds it reach your Mac. Keep each one as secret as a password, give
+  every device its own, and give a client a new code, or remove it, under Settings › Clients if you
+  think its code has been exposed, as the <a href="docs.html#security">documentation</a> describes.</p>
 <h2>Third-party services</h2>
-<p>The app checks GitHub for updates, and the API docs page on your Mac loads Swagger UI from jsDelivr.
-  Programs you connect to Zubi, such as dashboards, home automation systems or AI agents, are governed
+<p>The app checks GitHub for updates. By default, the Mac and your devices connect through the relay
+  at <code>relay.fa-krug.de</code>, provided free of charge, without any guarantee that it is available,
+  and with no obligation to keep running it; it may be limited or stopped at any time. You can run your
+  own relay instead. Programs you connect to Zubi, such as dashboards, home automation systems or AI agents, are governed
   by their own terms. See the <a href="privacy.html">privacy policy</a> for what each connection
   involves.</p>
 <h2>No warranty</h2>
@@ -57,22 +59,23 @@
   Lizenz genutzt, kopiert, verändert und weitergegeben werden. Die enthaltene Software Dritter ist samt
   Lizenzen in den <a href="https://github.com/fa-krug/zubi/blob/main/NOTICE.md">Hinweisen</a> aufgeführt.</p>
 <h2>Was Sie freigeben und erlauben</h2>
-<p>Zubi gibt die ausgewählten Erinnerungen, Kalender und Notizen an jeden heraus, der Ihren API-Schlüssel
-  hat und Ihren Mac erreichen kann, und lässt diese dort Einträge anlegen und ändern, wo Sie „Read &amp;
-  Write“ gewählt haben. Sie entscheiden, was Sie freigeben, was geändert werden darf, von welchen
-  Geräten und über welches Netzwerk. Über Zubi vorgenommene Änderungen sind echte Änderungen Ihrer Daten
+<p>Zubi gibt die ausgewählten Erinnerungen, Kalender und Notizen an jedes Gerät heraus, das Sie mit ihm
+  koppeln, und lässt diese dort Einträge anlegen und ändern, wo Sie „Read &amp; Write“ gewählt haben. Sie
+  entscheiden, was Sie freigeben, was geändert werden darf und welche Geräte sich verbinden dürfen. Über Zubi vorgenommene Änderungen sind echte Änderungen Ihrer Daten
   und werden wie jede andere synchronisiert; Zubi löscht nie etwas, kann aber dort, wo Sie Schreiben
   erlauben, Titel, Notizen oder Termine überschreiben. Geteilte Kalender und Listen können Informationen anderer Personen enthalten; Sie sind dafür
   verantwortlich, diese nur so freizugeben, wie Sie dazu berechtigt sind und wie es geltendem Recht
   entspricht.</p>
 <h2>Sicherheit der eigenen Einrichtung</h2>
-<p>Die API nutzt unverschlüsseltes HTTP und einen einzigen Schlüssel. Halten Sie den Schlüssel geheim und
-  greifen Sie von anderen Geräten nur über einen SSH-Tunnel oder ein vertrauenswürdiges Netzwerk zu, wie
-  in der <a href="docs.html#network">Dokumentation</a> beschrieben. Erzeugen Sie den Schlüssel neu, wenn
-  er bekannt geworden sein könnte.</p>
+<p>Wer einen Kopplungscode hat, erreicht Ihren Mac. Halten Sie jeden so geheim wie ein Passwort, geben
+  Sie jedem Gerät einen eigenen, und erzeugen Sie unter Settings › Clients einen neuen Code oder entfernen
+  Sie den Client, wenn ein Code bekannt geworden sein könnte, wie in der
+  <a href="docs.html#security">Dokumentation</a> beschrieben.</p>
 <h2>Dienste Dritter</h2>
-<p>Die App prüft bei GitHub auf Updates, und die API-Dokumentation auf dem Mac lädt Swagger UI von
-  jsDelivr. Programme, die Sie mit Zubi verbinden, etwa Dashboards, Hausautomation oder KI-Agenten,
+<p>Die App prüft bei GitHub auf Updates. Voreingestellt verbinden sich der Mac und Ihre Geräte über das
+  Relay <code>relay.fa-krug.de</code>, das kostenlos bereitgestellt wird, ohne Gewähr für seine
+  Verfügbarkeit und ohne Pflicht, es weiter zu betreiben; es kann jederzeit eingeschränkt oder eingestellt
+  werden. Stattdessen können Sie ein eigenes Relay betreiben. Programme, die Sie mit Zubi verbinden, etwa Dashboards, Hausautomation oder KI-Agenten,
   unterliegen ihren eigenen Bedingungen. Was jede Verbindung bedeutet, steht in der
   <a href="privacy.html">Datenschutzerklärung</a>.</p>
 <h2>Keine Gewährleistung</h2>

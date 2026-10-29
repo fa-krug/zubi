@@ -108,11 +108,11 @@ func TestMCPToolsMatchSpec(t *testing.T) {
 	}
 }
 
-// TestMCPCoversOperations: every operation an assistant could use has a tool. The stream, the
-// calendar feed and the service pages are for other clients.
+// TestMCPCoversOperations: every operation an assistant could use has a tool. The stream and the
+// health check are for other uses.
 func TestMCPCoversOperations(t *testing.T) {
 	api := loadSpec(t)
-	notTools := []string{"GET /api/changes", "GET /api/calendars/{id}/events.ics", "GET /health", "GET /openapi.json", "GET /docs"}
+	notTools := []string{"GET /api/changes", "GET /health"}
 	for _, path := range keys(api.Paths) {
 		for _, method := range []string{"GET", "PUT", "POST", "PATCH", "DELETE"} {
 			if api.Paths[path].operation(method) == nil || slices.Contains(notTools, method+" "+path) {

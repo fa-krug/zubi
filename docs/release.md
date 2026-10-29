@@ -14,8 +14,8 @@ changes it:
 | `release-cli.yml` | `cli/`, the workflow | `cli/v<version>` | never |
 
 A push that changes only Markdown elsewhere, `docs/` or the other product releases nothing new. A
-change to `openapi.json` lives in `Packages/` and so ships the app, which serves it; the CLI's tests
-still run against it in that release's gate. Either workflow can also be started by hand
+change to `openapi.json` lives in `Packages/` and so ships the app; the CLI's tests still run against
+it in that release's gate. Either workflow can also be started by hand
 (`workflow_dispatch`).
 
 Both are numbered the same way: `MAJOR.MINOR` from a file (`MARKETING_VERSION` in `project.yml` for
@@ -24,8 +24,8 @@ strictly newer than the last. **The app's workflow keeps the file name `release.
 run numbers per workflow file, so a renamed file would restart at 1 and the updater would see every
 new build as older than the installed one.
 
-The website deploys from a third workflow, `pages.yml`, when a push changes `site/`,
-`openapi.json` (its API reference is generated from it) or the workflow. It runs
+The website deploys from a third workflow, `pages.yml`, when a push changes `site/` or
+the workflow. It runs
 `python3 site/tools/build.py _site` and publishes `_site` to GitHub Pages at
 <https://zubi.fa-krug.de/>; a newer push cancels a deployment still running. It needs Pages'
 source set to GitHub Actions once, under the repository's Settings › Pages.

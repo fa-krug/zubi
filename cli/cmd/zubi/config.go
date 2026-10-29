@@ -110,7 +110,7 @@ func resolve(flagURL, flagKey string) (ep endpoint, key string, paired bool, err
 		return endpoint{}, "", false, nil
 	}
 	socket, _ := socketPath()
-	return endpoint{Relay: cfg.Relay, Socket: socket}, first(flagKey, os.Getenv("ZUBI_API_KEY"), cfg.Relay.Secret), true, nil
+	return endpoint{Relay: cfg.Relay, Socket: socket}, cfg.Relay.Secret, true, nil
 }
 
 func first(values ...string) string {

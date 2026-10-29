@@ -1,11 +1,48 @@
-# zubi CLI
+# zubi
 
-`zubi` reads and changes the Reminders, calendars and Notes that a Mac running
-[Zubi](../README.md) shares over its HTTP API. It runs on macOS, Linux and Windows, needs nothing
-on the Mac beyond Zubi itself, and prints either readable text or the API's JSON. It can also
-follow changes as they happen, hand calendar apps a subscription URL, serve Zubi to AI
-assistants over the Model Context Protocol, and run a relay for a Mac and clients on different
-networks.
+`zubi` is the client for [Zubi](../README.md): it reads and changes the Reminders, calendars and
+Notes your Mac shares, from Linux (including a Raspberry Pi), macOS or Windows, wherever the Mac is.
+It reaches the Mac through a relay, `wss://relay.fa-krug.de` unless you run your own, and each
+connection is encrypted end to end between this computer and the Mac with the pairing code's key: the
+relay passes along only what it can't read.
+
+```sh
+curl -fsSL https://zubi.fa-krug.de/install.sh | sh
+zubi
+```
+
+## Getting started
+
+Run `zubi`. The first time, it asks for a pairing code: on the Mac, copy one from **Zubi › Settings ›
+Connection**, or add a client for this computer under **Settings › Clients** and copy its code, then
+paste it. `zubi` checks it with the Mac through the relay and saves it only when that works, so a typo
+or a sleeping Mac shows at once. The code holds this computer's key: treat it as a password.
+
+On Linux, it then sets up the `zubi-client` service (asking for `sudo`), which keeps the connection to
+the Mac, starts at boot, and lets every command start without connecting again. Elsewhere commands
+connect each time, which works the same, only a moment slower.
+
+From then on, `zubi` on its own shows the connection's status:
+
+```text
+$ zubi
+✓ Paired as "Kitchen Pi", through wss://relay.fa-krug.de
+✓ The zubi-client service keeps the connection
+✓ Your Mac answers
+
+Try `zubi reminders`, `zubi events` or `zubi notes`; `zubi help` lists everything.
+```
+
+A ✗ says what is wrong: the service isn't running (`systemctl status zubi-client` says why), the Mac
+refused the code (it was removed or renewed under Settings › Clients: `zubi pair -` with a new one),
+or the Mac doesn't answer (asleep, Zubi not running, or not connected to the relay; its menu bar icon
+shows which).
+
+| Command | Does |
+| --- | --- |
+| `zubi` | The status; pairs the first time |
+| `zubi pair CODE` | Pair again, with a new code or for another relay. `zubi pair -` reads the code from stdin, so it stays out of your shell history |
+| `zubi unpair` | Forget the pairing and remove the `zubi-client` service |
 
 ## What it can see and change
 
@@ -24,20 +61,6 @@ subscribed or holiday calendar never takes changes, whatever the setting.
 Nothing is ever deleted through Zubi. You can add, rename, move, reschedule and complete, and clear
 a field (`--clear-due`), but removing a reminder, event or note is done on the Mac. Zubi never
 changes a locked note.
-
-### Keys
-
-Zubi gives each device its own key, made under **Settings › Keys**, with one of two kinds of
-access:
-
-- **Read** keys can only read, whatever the lists, calendars and folders allow. Every add or edit
-  answers 403.
-- **Read & Write** keys can also add and edit, where the list, calendar or folder is set to
-  Read & Write too.
-
-`zubi key` shows the name and access of the key you are using; `zubi health` mentions it as well.
-Give a script, a calendar app or an AI assistant a key of its own, read-only unless it needs to
-write, so you can take it back without touching the others.
 
 ## Install
 
@@ -112,44 +135,7 @@ go install github.com/fa-krug/zubi/cli/cmd/zubi@latest
 This needs Go 1.26 or later and puts `zubi` in `$(go env GOPATH)/bin`. A build from source
 reports its version as `dev`.
 
-## Configure
-
-`zubi` needs two things: where Zubi is, and a key made in Zubi under **Settings › Keys**.
-
-```sh
-zubi config discover --save  # finds Zubi on this network and stores its URL
-zubi config set key -        # paste the key, then Enter; it stays out of your shell history
-zubi config                  # shows the file, the URL and the key (masked)
-zubi health                  # checks that Zubi answers, and names the key and its access
-```
-
-`zubi config set url http://mac.local:8787` sets the URL by hand. `zubi config unset url` and
-`zubi config unset key` remove a setting.
-
-### Finding Zubi on the network
-
-`zubi config discover` asks the local network for Zubi over multicast DNS (Bonjour), waits two
-seconds (`--timeout 5s` waits longer), and lists every Mac that answers, with its URL, addresses
-and Zubi version. `--save` stores the URL when exactly one answered; `--pick N` stores the Nth.
-The URL uses the Mac's `.local` name when this machine can resolve it, since that outlives an
-address change, and its IP address otherwise. `--json` prints the list as JSON.
-
-The Mac announces Zubi only while Zubi listens on all interfaces (**Settings › Server › Network:
-All interfaces**), and multicast doesn't cross routers or VPNs. When nothing answers, `discover`
-exits 4; use an SSH tunnel or set the URL by hand. On macOS, the first run may ask to allow your
-terminal to find devices on the local network.
-
-Each setting is taken from the first place that has it:
-
-1. the flags `--url` and `--key`
-2. the environment variables `ZUBI_URL` and `ZUBI_API_KEY`
-3. the config file: a pairing from `zubi pair` (see [Through a relay](#through-a-relay)), or the URL
-4. for the URL only, the default `http://127.0.0.1:8787`
-
-A URL from a flag or the environment wins over a pairing; `zubi config set url` and
-`config discover --save` replace it.
-
-The config file is JSON, written readable by its owner only (mode 0600). Where it lives:
+The settings file, with the pairing code, is JSON readable only by its owner:
 
 | OS      | Path                                                  |
 | ------- | ----------------------------------------------------- |
@@ -157,13 +143,8 @@ The config file is JSON, written readable by its owner only (mode 0600). Where i
 | Linux   | `$XDG_CONFIG_HOME/zubi/config.json`, else `~/.config/zubi/config.json` |
 | Windows | `%AppData%\zubi\config.json`                          |
 
-`ZUBI_CONFIG` points `zubi` at another file.
-
-Zubi listens on `127.0.0.1:8787` until you change it in its Settings. From another machine, reach
-it [through a relay](#through-a-relay), through an SSH tunnel
-(`ssh -N -L 8787:localhost:8787 user@mac.local`, then keep the default URL), or over an encrypted
-network such as Tailscale. The API is plain HTTP and the key travels in every request; through a
-relay, the session around it is end-to-end encrypted.
+`ZUBI_CONFIG` points `zubi` at another file. The `zubi-client` service listens on `zubi.sock` in the
+same folder, which only the owner can open.
 
 ## Commands
 
@@ -178,10 +159,7 @@ relay, the session around it is end-to-end encrypted.
 | `folders`    | Notes folders, as a tree; read-only ones marked | |
 | `notes`      | Note titles and IDs, newest first      | `--folder NAME\|ID`, `--limit N` (1–500, default 50), `--search TEXT` |
 | `note ID`    | One note's text                        | `--html` for the note's HTML |
-| `health`     | Whether Zubi answers (needs no key), and with a key, its name and access | |
-| `key`        | The key's name and access: read-only, or read & write | |
-| `config`     | Settings, as above; `config discover` finds Zubi | `--save`, `--pick N` (with `discover`) |
-| `version`    | The CLI's version                      | |
+| `version`    | The client's version                   | |
 
 `--search TEXT`, or `-q TEXT`, keeps the items whose title or notes contain `TEXT`, ignoring
 case. For notes it searches their text, which reads every note in the folder and can take a few
@@ -216,15 +194,12 @@ can edit it next.
 - **A recurring event** shares one ID across its occurrences. `--occurrence` picks the one to
   change: its start, exactly as `zubi events --ids` (or `.start` in `--json`) shows it. Only that
   occurrence changes. A recurring event without `--occurrence` answers 400.
-- An event's URL is `--link`, because `--url` is Zubi's address.
 
 Flags every command accepts, anywhere on the line:
 
 | Flag            | Meaning |
 | --------------- | ------- |
-| `--json`        | Print the API's JSON response instead of text |
-| `--url URL`     | Zubi's address |
-| `--key KEY`     | The API key |
+| `--json`        | Print Zubi's JSON response instead of text |
 | `--timeout DUR` | Give up after this long, such as `5s` or `1m` (default `20s`; Notes can be slow) |
 | `--no-color`    | No colour |
 
@@ -262,7 +237,7 @@ you press Ctrl-C:
 ```
 
 The line says what changed (`reminders`, `calendar` or `notes`) and whether the change came
-through Zubi's API or from elsewhere: the Mac, iCloud or another device. Zubi doesn't say which
+through Zubi or from elsewhere: the Mac, iCloud or another device. Zubi doesn't say which
 item changed; re-read what you show. Notes has no change notifications on the Mac, so only
 changes made through Zubi are reported for it.
 
@@ -274,39 +249,20 @@ changes made through Zubi are reported for it.
   change in `ZUBI_CHANGE_SOURCE` and `ZUBI_CHANGE_ORIGIN`. One run happens at a time; changes that
   arrive during a run cause one more run after it. Its output goes to stderr, so stdout stays the
   change lines. For pipes or variables, run a shell yourself: `--exec "sh -c '…'"`.
-- When the connection drops (Zubi restarts, the Mac sleeps, the network goes), `zubi watch`
+- When the connection drops (Zubi restarts, the Mac sleeps, the network or the relay goes), `zubi watch`
   reconnects, waiting a little longer after each failure up to 30 seconds. Zubi sends a
   keep-alive every 30 seconds, so a connection that stays silent for longer is treated as dropped.
-  Changes made while it was disconnected are not reported. A refused key (exit 3) or a Zubi too old
-  to report changes (exit 4) ends it.
+  Changes made while it was disconnected are not reported. A refused pairing (exit 3) or a Zubi too
+  old to report changes (exit 4) ends it.
 - `--timeout` limits connecting, not how long it watches. Ctrl-C exits 0.
-
-### Subscribing to a calendar
-
-`zubi feed CALENDAR` prints the URL a calendar app (Apple Calendar, Google Calendar, Outlook,
-Thunderbird) subscribes to, for a calendar named by title or ID. The app fetches the calendar's
-events as iCalendar from Zubi, from 30 days back to a year ahead, so the window moves with time.
-`--from` and `--to` fix it instead.
-
-Calendar apps can't send a key in a header, so the URL contains it. **Make a read-only key for
-each calendar app** (Settings › Keys) and print the URL with it, so the app can't change anything
-and you can revoke it alone:
-
-```sh
-ZUBI_API_KEY=<read-only key> zubi feed Work
-```
-
-`zubi feed` warns on stderr about which key the URL holds. The URL names the calendar by its ID,
-so it keeps working when you rename the calendar. The app must reach the Mac at the URL you
-configured; an app that subscribes from a server (Google Calendar) needs Zubi reachable from the
-internet, which Zubi isn't built for. `zubi feed CALENDAR --download` writes the iCalendar file to
-stdout instead, fetched with the key in a header.
 
 ### Using it with Claude Desktop and other MCP clients
 
 `zubi mcp` serves Zubi to AI assistants over the [Model Context
 Protocol](https://modelcontextprotocol.io): the client starts it, and talks to it over stdin and
-stdout. Give it a key of its own, read-only unless you want the assistant to add and edit.
+stdout. It uses this computer's pairing, so pair first, as the same user the assistant runs as. To
+tell the assistant's changes apart in Settings › Activity, pair that computer with a client of its
+own.
 
 For Claude Desktop, add it to `claude_desktop_config.json` (**Settings › Developer › Edit
 Config**), with the full path to `zubi`:
@@ -316,11 +272,7 @@ Config**), with the full path to `zubi`:
   "mcpServers": {
     "zubi": {
       "command": "/usr/local/bin/zubi",
-      "args": ["mcp"],
-      "env": {
-        "ZUBI_URL": "http://mac.local:8787",
-        "ZUBI_API_KEY": "<a key from Zubi › Settings › Keys>"
-      }
+      "args": ["mcp"]
     }
   }
 }
@@ -329,44 +281,36 @@ Config**), with the full path to `zubi`:
 For Claude Code:
 
 ```sh
-claude mcp add zubi --env ZUBI_URL=http://mac.local:8787 --env ZUBI_API_KEY=<key> -- zubi mcp
+claude mcp add zubi -- zubi mcp
 ```
 
-or `claude mcp add zubi -- zubi mcp` to use the URL and key from `zubi config`. Other clients
-take the same command, `zubi mcp`.
+Other clients take the same command, `zubi mcp`.
 
 The tools are `list_reminder_lists`, `list_reminders`, `list_calendars`, `list_events`,
 `list_note_folders`, `list_notes`, `get_note`, `create_reminder`, `update_reminder`,
-`create_event`, `update_event`, `create_note`, `update_note` and `get_key`. Their arguments are
-the API's parameters, by the same names; they answer with the API's JSON, and with an explanation
-the assistant can act on when Zubi refuses (a read-only list, a read-only key, a locked note).
-The assistant sees the same lists, calendars and folders as `zubi`, and can't delete anything
-either. `zubi mcp` logs to stderr, which clients keep in their MCP logs; it starts without a key,
+`create_event`, `update_event`, `create_note`, `update_note` and `get_key`. They answer with Zubi's
+JSON, and with an explanation the assistant can act on when Zubi refuses (a read-only list, a locked
+note). The assistant sees the same lists, calendars and folders as `zubi`, and can't delete anything
+either. `zubi mcp` logs to stderr, which clients keep in their MCP logs; it starts without a pairing,
 and then each tool answers that one is needed.
 
 ## Using it from an agent
 
-- **Always pass `--json`.** Text output is for people and may change; with `--json`, stdout is the
-  API's response body, indented, and nothing else. Its shape is the one the API documents (below).
-  Fields without a value are left out, not `null`.
+- **Always pass `--json`.** Text output is for people and may change; with `--json`, stdout is Zubi's
+  response body, indented, and nothing else. Fields without a value are left out, not `null`.
 - **Branch on the exit code**, not on the text:
 
   | Code | Meaning |
   | ---- | ------- |
   | 0    | Success; stdout holds the result |
-  | 1    | Any other error: a read-only list, calendar or folder, a read-only key, or access not granted on the Mac (403); a locked note (409); Notes unreadable (503); a request the server refused, such as a bad date range (400) |
-  | 2    | Bad usage: unknown command or flag, invalid value, missing title or required flag, an edit with nothing to change, conflicting flags (`--due` with `--clear-due`, `--text` with `--html`), or no API key configured. Nothing was sent. |
-  | 3    | The API key was refused (401) |
-  | 4    | Not found or not shared (404): an unknown list, calendar, folder, reminder, event or note, or one set to Off in Zubi's Settings; `config discover` found no Zubi |
-  | 5    | Nothing answered at the URL: Zubi isn't running, wrong address, or no tunnel |
+  | 1    | Any other error: a read-only list, calendar or folder, or access not granted on the Mac (403); a locked note (409); Notes unreadable (503); a request Zubi refused, such as a bad date range (400) |
+  | 2    | Bad usage: unknown command or flag, invalid value, missing title or required flag, an edit with nothing to change, conflicting flags (`--due` with `--clear-due`, `--text` with `--html`), or not paired yet. Nothing was sent. |
+  | 3    | The Mac refused this computer's pairing: its client was removed or given a new code |
+  | 4    | Not found or not shared (404): an unknown list, calendar, folder, reminder, event or note, or one set to Off in Zubi's Settings |
+  | 5    | The Mac doesn't answer: asleep, Zubi not running, or the relay unreachable |
 
 - **On failure, stdout is empty and stderr carries one line** starting `zubi:` that says what went
-  wrong, including the server's message when it sent one.
-- Pass the key through `ZUBI_API_KEY` or the config file rather than `--key`, which other users of
-  the machine can see in the process list.
-- `zubi health` exits 0 when Zubi is up, without needing the key; `zubi health --json` prints `ok`.
-- `zubi key --json` prints `{"name":"…","access":"read"}` or `"readWrite"`: whether this key may
-  write at all.
+  wrong, including Zubi's message when it sent one.
 - `zubi watch --json` prints one JSON object per line as things change, and runs until it is
   killed; read it line by line.
 
@@ -377,9 +321,7 @@ and then each tool answers that one is needed.
   and folders can be named by title or ID.
 - **Check `writable` first.** `zubi lists --json`, `zubi calendars --json` and `zubi folders --json`
   say for each one whether Zubi may change it. Writing to one that isn't answers 403 (exit 1);
-  retrying won't help. Tell the user to set it to Read & Write in Zubi's Settings on the Mac. A
-  read-only key (`zubi key --json` says `"access": "read"`) gets 403 for every write, whatever
-  `writable` says.
+  retrying won't help. Tell the user to set it to Read & Write in Zubi's Settings on the Mac.
 - **A write prints the item as the server now has it** (`--json`: the API's Reminder, Event or
   Note), including its `id`, so you can follow up without listing again. Creating answers 201,
   editing 200; both exit 0.
@@ -425,33 +367,34 @@ zubi notes add "Trip checklist" --folder Travel --text - --json < checklist.txt 
 zubi lists --json > lists.json
 case $? in
   0) ;;
-  3) echo "API key refused" >&2 ;;
-  5) echo "Zubi is not reachable" >&2 ;;
+  3) echo "the Mac refused this pairing" >&2 ;;
+  5) echo "the Mac does not answer" >&2 ;;
   *) echo "failed" >&2 ;;
 esac
 ```
 
-## Through a relay
+## Your own relay
 
-A relay is where a Mac running Zubi and its devices meet when they are on different networks, for
-example a MacBook on the road and a Raspberry Pi at home. Both connect out to the relay, so nothing
-has to accept connections from the internet, and the relay copies messages between them. Each
-session is end-to-end encrypted between the Mac and the device, with the device's key: the relay
-can't read your data, and sees only which addresses connect, when, and how much they send.
+Zubi uses `wss://relay.fa-krug.de` unless you set your own. Run one with `zubi relay` on a machine that
+is always on; a Raspberry Pi works well, and can be the device that reads your reminders at the same
+time. Then:
 
-Set it up in this order:
+1. On the Mac, under **Zubi › Settings › Connection**, turn on **Use my own relay**, enter its address,
+   such as `wss://relay.example.com`, and click **Apply**. The status turns green once the Mac is
+   connected to it.
+2. On each device, pair again with a code from **Settings › Clients**: `zubi pair -`. A pairing code
+   names its relay, so the old codes still point at the old one.
 
-1. [Run the relay](#running-a-relay) on a machine that is always on, or use one you already have.
-2. [Connect the Mac](#connecting-the-mac) to it.
-3. [Pair each device](#pairing-a-device) that should reach the Mac through it.
+The relay only copies messages between the Mac and its devices; it can't read them, and sees only
+which addresses connect, when, and how much they send. What decides the setup is where its `wss://`
+address comes from; pick the first that fits.
 
-### Running a relay
 
 The relay is `zubi relay`, on a machine that is always on. A Raspberry Pi works well, and can be the
 device that reads your reminders at the same time. What decides the setup is where its `wss://`
 address comes from; pick the first that fits.
 
-#### Behind a Cloudflare Tunnel
+### Behind a Cloudflare Tunnel
 
 No port forwarding and no certificate to manage; you need a domain on Cloudflare and `cloudflared`
 running on the machine.
@@ -492,7 +435,7 @@ relay the connection arrived over TLS, which `--behind-tls-proxy` insists on. A 
 that serves `wss://` works the same way, as long as it passes WebSocket upgrades on and sets
 `X-Forwarded-Proto` (Caddy does).
 
-#### On a machine at home, with a port forwarded
+### On a machine at home, with a port forwarded
 
 Free, and nobody else involved. Forward TCP port 443 on your router to the machine's port 8443, then:
 
@@ -512,7 +455,7 @@ than falling back to unencrypted `ws://`. Two things to check:
   certificate, but the Mac still has the old address. A free [DuckDNS](https://www.duckdns.org)
   name with `--domain` avoids that.
 
-#### On Render
+### On Render
 
 With no machine at home, Render's free web service runs the relay and serves `wss://` with its own
 certificate. New › Web Service › Public Git Repository `https://github.com/fa-krug/zubi`, then:
@@ -531,7 +474,7 @@ Free services sleep after 15 minutes without traffic; a connected Mac pings ever
 keeps it awake, and 750 free hours a month cover one service running all month. If it does sleep,
 the first connection takes about a minute. Deploying again picks up a newer `zubi`.
 
-#### On a server with a public address
+### On a server with a public address
 
 Any VPS, or Oracle Cloud's Always Free tier: `zubi relay --install-service`, as at home but without
 the router, and the address never changes. Oracle may reclaim an Always Free machine that stays idle
@@ -540,7 +483,7 @@ for a week, and a relay is mostly idle.
 Not a good fit: Google Cloud Run cuts every WebSocket after at most an hour, and its free tier needs a
 billing account that a connection open around the clock would soon draw on.
 
-#### Keeping it running
+### Keeping it running
 
 `--install-service` turns the command it is added to into a systemd service (Linux), so the relay
 keeps running after you log out or close the SSH session, starts at boot, and restarts after a
@@ -558,7 +501,7 @@ To change its flags, run `zubi relay` with the new flags and `--install-service`
 the service gets the one privilege that takes; after a failed certificate it waits 15 minutes before
 trying again, as Let's Encrypt allows five failed checks per address an hour.
 
-#### Flags
+### Flags
 
 | Flag | Does |
 | --- | --- |
@@ -568,7 +511,7 @@ trying again, as Let's Encrypt allows five failed checks per address an hour.
 | `--state DIR` | Where the certificate and Let's Encrypt account key are kept (default `~/.config/zubi/relay`, readable only by you). |
 | `--acme-directory URL` | Another ACME certificate authority, such as Let's Encrypt's staging one for testing. |
 | `--behind-tls-proxy` | Serve plain HTTP on `$PORT` (else `:8080`) for a tunnel, platform or reverse proxy that serves `wss://` itself. WebSockets the proxy didn't receive over TLS are refused. |
-| `--no-tls` | Serve plain `ws://` on `$PORT` (else `:8080`). Only on a network you trust: the content stays end-to-end encrypted, but the metadata doesn't. Zubi and `zubi pair` don't use a `ws://` relay. |
+| `--no-tls` | Serve plain `ws://` on `$PORT` (else `:8080`). Only on a network you trust: the content stays end-to-end encrypted, but the metadata doesn't. Zubi and `zubi` don't use a `ws://` relay. |
 | `--install-service`, `--uninstall-service` | Set up or remove the systemd service, as above. |
 
 On start the relay prints its address, or behind a proxy what to point the proxy at, and the next
@@ -576,64 +519,9 @@ steps. It stops on Ctrl-C or SIGTERM, exits with 1 when it can't start (no certi
 and with 2 on bad flags. The log goes to stderr: a line when a Mac connects or leaves, with the start
 of its room ID, and certificate renewals. It logs no client addresses.
 
-### Connecting the Mac
-
-1. On the Mac, open Zubi's **Settings › Server**. Under **Relay**, turn on **Connect through a relay**.
-2. Enter the relay's address, such as `wss://relay.example.com`, and click **Apply**.
-3. The status turns to **Connected**. The Mac stays connected while Zubi's server runs, and reconnects
-   on its own after sleep or a network change.
-
-### Pairing a device
-
-1. [Install `zubi`](#install) on the device.
-2. On the Mac, under **Settings › Keys**, add a key for the device, or open an existing key's menu, and
-   choose **Copy Pairing Code**.
-3. On the device:
-
-   ```sh
-   zubi pair -        # paste the code, then Enter; it stays out of your shell history
-   zubi lists         # every command now reaches the Mac through the relay
-   ```
-
-`zubi pair` asks the Mac, through the relay, which key the code is for, and saves it (with the key)
-only when that works, so a typo or a stopped Mac shows at once. It exits 3 when the Mac refuses the
-key (deleted, or regenerated since the code was copied) and 5 when the Mac isn't connected to the
-relay. The code holds the key, so treat it as secret.
-
-From then on every command, `zubi watch` and `zubi mcp` go through the relay. `zubi config` shows the
-relay and room, `zubi config unset relay` forgets them, and `--url` or `ZUBI_URL` still reach Zubi
-directly for one run. A calendar subscription can't go through the relay, since the calendar app is
-what connects: run `zubi tunnel` on its computer and use `zubi feed --url http://127.0.0.1:8787`.
-
-### Lending the relay to other programs
-
-```sh
-zubi tunnel                        # http://127.0.0.1:8787, until Ctrl-C
-zubi tunnel --listen 127.0.0.1:9000
-zubi tunnel --install-service      # keep it running, as a systemd service
-```
-
-`zubi tunnel` serves Zubi's API at a local address, each connection a session through the relay, so a
-dashboard, a script with `curl`, or anything else that speaks HTTP reaches the Mac as if it were on
-this computer. Requests still need a key in their `Authorization` header, as they would on the Mac:
-the tunnel only carries them. It listens on loopback unless `--listen` says otherwise.
-`--install-service` works as for the relay; run it as the user who ran `zubi pair`, as the pairing is
-in that user's config file.
-
-## The API
-
-`zubi` is a thin client. The API it calls is described by an OpenAPI document that Zubi serves
-itself:
-
-- `http://<mac>:8787/docs` — Swagger UI, for reading and trying requests
-- `http://<mac>:8787/openapi.json` — the OpenAPI 3.1 document
-
-The CLI's tests check its requests, request bodies and response types against that document, so
-the two don't drift apart.
-
 ## Development
 
-The CLI is a Go module in `cli/` of the Zubi repository. It uses only the standard library, except
+The client is a Go module in `cli/` of the Zubi repository. It uses only the standard library, except
 for the relay's certificates: `internal/relay` uses `golang.org/x/crypto/acme`.
 
 ```sh
@@ -642,27 +530,24 @@ go test ./...
 go build -ldflags "-X main.version=1.2.3" ./cmd/zubi
 ```
 
-Every request the CLI can make is one entry in `apiCommands` (`cmd/zubi/commands.go`): its method,
-path, query parameters, request body type, response type and media type. The tests read
-`Packages/ZubiAPI/Sources/ZubiAPI/Resources/openapi.json` and fail when an entry, a path or query
-parameter, a request body struct (field names, required vs. optional, which fields may be `null`)
-or a response struct disagrees with it, or when the spec gains an operation or a query parameter
-no command sends. They also validate the fixtures in `cmd/zubi/testdata/` against it, and run every
-command against a fake Zubi that checks each request's method, path, parameters, body and `Accept`
-header against the spec and answers with those fixtures.
+Every request the client can make is one entry in `apiCommands` (`cmd/zubi/commands.go`): its method,
+path, query parameters, request body type, response type and media type. The protocol inside a session
+is HTTP, described by `Packages/ZubiAPI/Sources/ZubiAPI/Resources/openapi.json`; the tests read it and
+fail when an entry, a path or query parameter, a request body struct (field names, required vs.
+optional, which fields may be `null`) or a response struct disagrees with it, or when it gains an
+operation or a query parameter no command sends. They also validate the fixtures in
+`cmd/zubi/testdata/` against it, and run every command against a fake Zubi that checks each request's
+method, path, parameters, body and `Accept` header against it and answers with those fixtures.
 
 The MCP tools (`mcpTools` in `cmd/zubi/mcp.go`) each name an entry in `apiCommands` and send
 through the same client. The tests check that each tool's arguments are exactly its operation's
 parameters and body properties (names, types, enums, bounds, required), that every operation an
-assistant could use has a tool, and drive every tool through `zubi mcp` against the fake. The
-multicast DNS encoder and decoder behind `config discover` (`cmd/zubi/dns.go`) are tested with
-crafted packets, so no test needs the network.
+assistant could use has a tool, and drive every tool through `zubi mcp` against the fake.
 
 The relay (`internal/relay`, `internal/websocket`) has its own tests: WebSocket framing, the relay
 protocol from registration to a closed session, limits and STUN. Sessions through it
 (`internal/noise`, `internal/tunnel`) are tested against vectors from an independent Noise
-implementation, shared with the app's tests, and end to end: `zubi pair`, commands, `zubi watch`
-and `zubi tunnel` run against the fake Zubi through a real relay and a Go stand-in for the Mac
+implementation, shared with the app's tests, and end to end: pairing, `zubi serve`, commands and `zubi watch` run against the fake Zubi through a real relay and a Go stand-in for the Mac
 (`tunnel.Host`). Its certificate tests need Pebble,
 Let's Encrypt's test CA, and are skipped without it:
 `ZUBI_PEBBLE=$(go env GOPATH)/bin/pebble go test ./internal/relay/` after
